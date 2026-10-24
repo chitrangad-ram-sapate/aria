@@ -463,3 +463,19 @@ Engine names, CSV column names and the decision log are unchanged.
 - Live listeners restart after an error. A brand-new account is not on the server for a moment, and Firestore otherwise ends a listener on its first error.
 
 **Alternatives rejected:** accounts stored only on the phone (an admin could not see drivers on other phones); a separate server (not free, and against D-027).
+
+### D-040 · Plan files sent to drivers inside the app · Accepted
+**Context:** The admin should share the `.svcr` plan file directly with drivers, and drivers should view it in the app.
+**Decision:**
+- **Sending:** Home → **Share plan** offers "Send to drivers in the app" (tick one or more drivers) next to the existing "Share to WhatsApp, email...".
+- **Storage:**
+  - A plan file is about 1 MB because it carries the whole dataset. It is gzipped (about 115 KB) and stored in Firestore under `orgs/{org}/files/{id}`, in 700 KB pieces under the 1 MiB document limit.
+  - Firebase Storage was not used: new projects need the paid plan for it (D-027).
+  - Each driver gets their own copy, so access is simply "the driver it was sent to".
+- **Driver's Plans tab:** files sent to them, marked New until opened. Opening one:
+  - checks the file's fingerprint (sha256, as in `aria/svcr.py`) in the browser, with no planner needed;
+  - shows units, depots and towns, a pick list per depot and town, and the shortages in plain words.
+
+  **Run the full safety check** loads the planner on demand and runs the same check as the admin's Files screen (fingerprint of the data plus all 8 safety rules). Drivers can also open a `.svcr` that reached them another way (WhatsApp, email).
+- **Admin's Team screen** lists sent plan files with "Opened" or "Not opened yet", and each can be removed.
+- **Rules:** only an admin of the team sends or removes files, and only to a driver in the team. A driver reads only their own files and can only mark them opened. A paused driver loses access. These cases are added to `scripts/rules-test.mjs` (35 checks).
