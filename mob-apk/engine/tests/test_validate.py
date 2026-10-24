@@ -125,3 +125,17 @@ def test_warn_no_eligible_supply():
     w = codes(validate(p), "warnings")
     b_rows = [i for i, d in enumerate(p["demand"]) if d["town_id"] == "B"]
     assert all(("W_NO_ELIGIBLE_SUPPLY", f"$.demand[{i}]") in w for i in b_rows)
+
+
+def test_e_size_reported_alongside_bad_refs():
+    """Regression (simulation I3): with an E_BAD_REF present, E_SIZE was never reported, even when
+    towns x products x 100 segments alone exceed the limit, so 'all errors at once' failed."""
+    from aria.validate import validate as _validate
+    from tests.fixtures import tiny_scenario
+
+    d = tiny_scenario().model_dump(mode="json")
+    d["towns"] = [{**d["towns"][0], "town_id": f"T{i}"} for i in range(40)]
+    d["products"] = [{**d["products"][0], "product_id": f"P{i}"} for i in range(80)]
+    d["lots"][0]["godown_id"] = "NOPE"
+    codes = {(e["code"], e["path"]) for e in _validate(d)["errors"]}
+    assert ("E_BAD_REF", "$.lots[0].godown_id") in codes and ("E_SIZE", "$") in codes

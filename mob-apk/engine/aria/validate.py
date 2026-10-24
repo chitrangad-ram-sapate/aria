@@ -213,6 +213,10 @@ def validate(payload: dict, shocks: list | None = None) -> dict:
         if cols > MAX_MODEL_COLUMNS:
             errors.append(_issue("E_SIZE", "$", f"model would have {cols} columns (> {MAX_MODEL_COLUMNS}); plan a product subset"))
         warnings = _warnings(sc)
+    elif sc is not None and len(sc.towns) * len(sc.products) * SEGMENTS > MAX_MODEL_COLUMNS:
+        # bad references leave the arcs undefined, but the segment columns alone already exceed the limit
+        cols = len(sc.towns) * len(sc.products) * SEGMENTS
+        errors.append(_issue("E_SIZE", "$", f"model would have at least {cols} columns (> {MAX_MODEL_COLUMNS}); plan a product subset"))
     return {
         "valid": not errors,
         "errors": errors,
