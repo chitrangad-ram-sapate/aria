@@ -4,16 +4,31 @@ How the ARIA repository is owned, protected and opened up to the team. This impl
 
 ## Current state
 
-| Who | GitHub handle | Access |
-|---|---|---|
-| Repository owner (master control) | `chitrangad-ram-sapate` | Owner of the private repo `chitrangad-ram-sapate/aria` |
-| Collaborator | `ruturajnalbalwar-arch` | Write |
-| Collaborator | `thevipulbangar` | Write |
-| Collaborator | `Physics0070` | Write |
+| Who | GitHub handle | Access | Owns |
+|---|---|---|---|
+| Repository owner (master control) | `chitrangad-ram-sapate` | Owner | **A**: optimizer & explanations (`mob-apk/engine/aria/engine/`) |
+| Collaborator | `ruturajnalbalwar-arch` | Write | **B**: data & forecasting (`mob-apk/engine/aria/forecast/`, `mob-apk/engine/data/`) |
+| Collaborator | `thevipulbangar` | Write | **C**: baselines, verifier & replay (`verify/`, `metrics.py`, `baseline_a.py`, replay results) |
+| Collaborator | `Physics0070` | Write | **D**: mobile app, validation, `.svcr`, Firebase, demo (`mob-apk/src`, `android`, `ios`) |
+
+## How each owner contributes
+
+Every owner commits from their **own machine and GitHub login**, so each commit carries its real author:
+
+```bash
+git clone https://github.com/chitrangad-ram-sapate/aria.git && cd aria
+git switch -c owner/<a|b|c|d>-<topic> origin/dev      # e.g. owner/b-forecast-import
+# ...edit files in your area...
+git add -A && git commit -m "<what changed>"
+git push -u origin HEAD
+gh pr create --base dev --fill                         # CODEOWNERS requests the right reviewers
+```
+
+Flow: owner branch → PR into `dev` (reviewed by the area's code owner) → `dev` → PR into `main` (one approval, green CI).
 
 - The repository is **private**.
 - A personal-account repository cannot give collaborators an admin role. Only the owner can change settings, protection rules or visibility.
-- `.github/CODEOWNERS` requests review from the owner on every path, and from the whole team on each module. Narrow the module lines once the A–D roles are mapped to handles.
+- `.github/CODEOWNERS` maps each area to its owner, and maps the shared contract (`schemas.py`) and docs to the whole team.
 
 ## Moving to a GitHub organization
 
