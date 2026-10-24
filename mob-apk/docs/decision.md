@@ -345,3 +345,17 @@ The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails th
 5. **bundled replay results**, so the efficiency proof works offline.
 
 **Why:** These are the statement's own evaluation words. Each one must be visible in the product, not only in the docs.
+
+### D-031 · Ownership and contribution flow · Accepted
+**Owners:**
+
+| Area | Owner |
+|---|---|
+| A: optimizer | `chitrangad-ram-sapate` |
+| B: data & forecasting | `ruturajnalbalwar-arch` |
+| C: verifier & replay | `thevipulbangar` |
+| D: mobile app, Firebase, demo | `Physics0070` |
+
+Encoded in `.github/CODEOWNERS`.
+
+**Flow:** work for an area goes to an `owner/<area>-<topic>` branch. Its PR is assigned to that area's owner, who reviews it. Commits are made by each person from their own GitHub login, so authorship stays truthful. No commit is authored under a teammate's name on their behalf.
