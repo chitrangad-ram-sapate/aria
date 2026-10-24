@@ -1,5 +1,6 @@
 // Account: who is signed in, their details (name, phone, vehicle), the team, and sign out.
 import { logOut, updateMyDetails } from '../cloud';
+import { endTracking } from './deliver';
 import { state } from '../state';
 import { h, icon, kv, mount, toast } from '../ui';
 
@@ -26,5 +27,5 @@ export function render(root: HTMLElement) {
       kv([['Email', me.email], ['Team', state.team?.name ?? '-'], ...(isDriver ? [] : [['Team code', state.team?.joinCode ?? '-'] as [string, string]])]),
       h('p', { class: 'note' }, isDriver ? 'You see the trips your admin sends you.' : 'You have full control: data, plans, What if, results and your drivers.')),
     form,
-    h('button', { class: 'btn block danger', onclick: async () => { await logOut(); location.reload(); } }, icon('logout'), 'Sign out'));
+    h('button', { class: 'btn block danger', onclick: async () => { await endTracking(); await logOut(); location.reload(); } }, icon('logout'), 'Sign out'));
 }

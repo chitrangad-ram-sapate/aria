@@ -1,9 +1,10 @@
 // Driver screens: My trips (load, deliver stop by stop, share the pick list) and Report a problem.
 // Drivers see only trips their admin sent them; they cannot change data or plans.
-import { errorText, loadPlanFile, markOpened, sendReport, updateTrip, when, type PlanFile, type Trip } from '../cloud';
+import { errorText, loadPlanFile, markOpened, sendReport, when, type PlanFile, type Trip } from '../cloud';
+import { closeStop, drawStop, isOpen, openStop, startTrip, stopLine, syncTracking } from './deliver';
 import { shareFile } from '../native';
 import { state } from '../state';
-import { badge, h, icon, mount, num, openSheet, select, toast } from '../ui';
+import { badge, h, icon, mount, num, select, toast } from '../ui';
 import { showPlanFile } from './planfile';
 
 let tripsRoot: HTMLElement | null = null;
@@ -14,6 +15,7 @@ let viewing = false; // a plan file is open: list updates must not replace it
 export function renderTrips(r: HTMLElement) {
   tripsRoot = r;
   reportRoot = filesRoot = null;
+  closeStop();
   drawTrips();
 }
 
@@ -24,55 +26,43 @@ export function renderReport(r: HTMLElement) {
 }
 
 export function update() {
+  syncTracking();
   if (tripsRoot) drawTrips();
   if (reportRoot) drawReport();
   if (filesRoot && !viewing) drawFiles();
 }
 
-const delivered = (t: Trip) => t.stops.filter((s) => s.delivered).length;
+const finished = (t: Trip) => t.status === 'done' || t.status === 'cancelled';
 
 function drawTrips() {
-  const open = state.trips.filter((t) => t.status !== 'done');
-  const done = state.trips.filter((t) => t.status === 'done').slice(0, 10);
+  if (isOpen()) return drawStop(tripsRoot!, drawTrips);
+  const open = state.trips.filter((t) => !finished(t));
+  const done = state.trips.filter(finished).slice(0, 10);
   mount(tripsRoot!,
     h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, `Hello, ${state.me?.name ?? ''}`),
       h('strong', {}, open.length ? `${open.length} trip${open.length > 1 ? 's' : ''} to do` : 'No trips right now'),
-      h('p', { class: 'small muted' }, open.length ? 'Load the stock, then tick each town when you hand it over.' : 'New trips from your admin appear here by themselves.')),
+      h('p', { class: 'small muted' }, open.length ? 'Start the trip, then open each town. Delivered unlocks when you reach the shop.' : 'New trips from your admin appear here by themselves.')),
     open.map(tripCard),
     done.length > 0 && [h('div', { class: 'section-head' }, h('h2', {}, 'Finished')),
-      h('ul', { class: 'rows' }, done.map((t) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, `From ${t.depot}`), h('span', {}, `${t.day} · ${num(t.units)} units`)), badge('Delivered', 'ok'))))]);
+      h('ul', { class: 'rows' }, done.map((t) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, `From ${t.depot}`), h('span', {}, `${t.day} · ${num(t.units)} units`)),
+        t.status === 'cancelled' ? badge('Cancelled', 'bad') : badge('Delivered', 'ok'))))]);
 }
 
 function tripCard(t: Trip) {
-  const orgId = state.me!.orgId;
-  const loaded = t.status !== 'assigned';
-  const save = async (patch: Partial<Pick<Trip, 'status' | 'stops'>>, ok: string) => {
-    try { await updateTrip(orgId, t.id, patch); toast(ok); } catch { toast('Saved on this phone. It will reach your admin when you are back online.'); }
-  };
+  const loaded = t.status === 'loaded';
+  const ss = state.stops[t.id] ?? [];
+  const confirmed = ss.filter((s) => s.state === 'delivered').length;
   return h('section', { class: 'card trip' },
     h('div', { class: 'row between' }, h('div', {}, h('p', { class: 'eyebrow' }, `${t.day} · sent ${when(t.createdAt)}`), h('strong', {}, `From ${t.depot}`)),
       loaded ? badge('On the road', 'warn') : badge('New', 'ok')),
     h('div', { class: 'split' },
       h('div', {}, h('span', { class: 'small' }, 'Units'), h('strong', {}, num(t.units))),
-      h('div', {}, h('span', { class: 'small' }, 'Towns'), h('strong', {}, `${delivered(t)} / ${t.stops.length}`))),
-    !loaded && h('button', { class: 'btn primary block', onclick: () => save({ status: 'loaded' }, 'Marked as loaded') }, icon('truck'), 'I have loaded the truck'),
-    h('ul', { class: 'rows stops' }, t.stops.map((s, i) => h('li', {},
-      h('div', { class: 'row-main tap', role: 'button', tabIndex: 0, onclick: () => stopSheet(t, i) }, h('strong', {}, `${i + 1}. ${s.town}`), h('span', {}, `${num(s.units)} units · ${s.items.length} product line${s.items.length > 1 ? 's' : ''}`)),
-      s.delivered ? badge('Delivered', 'ok')
-        : h('button', { class: 'btn small', disabled: !loaded, onclick: () => {
-          const stops = t.stops.map((x, k) => (k === i ? { ...x, delivered: true } : x));
-          save({ stops, ...(stops.every((x) => x.delivered) ? { status: 'done' as const } : {}) }, `${s.town} delivered`);
-        } }, icon('check'), 'Delivered')))),
+      h('div', {}, h('span', { class: 'small' }, 'Delivered'), h('strong', {}, `${confirmed} / ${t.stops.length}`))),
+    !loaded && h('button', { class: 'btn primary block big', onclick: () => startTrip(t) }, icon('truck'), 'Start delivery'),
+    h('ul', { class: 'rows stops' }, t.stops.map((_, i) => stopLine(t, i, () => { openStop(t.id, String(i)); drawTrips(); }))),
     h('div', { class: 'grid2' },
       h('button', { class: 'btn', onclick: () => shareFile(`trip_${t.depot.replace(/\W+/g, '_')}_${t.day}.csv`, pickCsv(t), 'text/csv') }, icon('share'), 'Pick list'),
       h('button', { class: 'btn', onclick: () => { reportFor = t.id; document.querySelector<HTMLButtonElement>('nav.tabs button[data-tab="report"]')?.click(); } }, icon('alert'), 'Report a problem')));
-}
-
-function stopSheet(t: Trip, i: number) {
-  const s = t.stops[i];
-  openSheet(`${s.town} · ${num(s.units)} units`,
-    h('ul', { class: 'rows' }, s.items.map((it) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, it.product), h('span', {}, `Lot ${it.lot} · ${it.days_left} days left on arrival`)),
-      h('div', { class: 'row-end' }, h('strong', {}, num(it.units)), h('span', {}, 'units'))))));
 }
 
 function pickCsv(t: Trip) {
@@ -90,7 +80,7 @@ let sending = false;
 
 function drawReport() {
   const me = state.me!;
-  const trips = state.trips.filter((t) => t.status !== 'done');
+  const trips = state.trips.filter((t) => !finished(t));
   const note = h('textarea', { rows: 4, placeholder: 'What happened? Where?', 'aria-label': 'Details' });
   const mine = state.reports.slice(0, 20);
   mount(reportRoot!,
