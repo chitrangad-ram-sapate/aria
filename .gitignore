@@ -8,3 +8,11 @@ wheelhouse/
 *.duckdb
 *.parquet
 .env
+mobile/node_modules/
+mobile/dist/
+mobile/public/pyodide/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/ios/App/build/
+mobile/ios/DerivedData/
