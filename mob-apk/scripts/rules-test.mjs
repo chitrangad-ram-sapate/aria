@@ -1,10 +1,11 @@
 // Checks firestore.rules against the emulators by trying what a curious or careless user might try.
+// Covers accounts, trips, reports and plan files.
 // Usage: start the emulators (npx firebase-tools emulators:start --only auth,firestore --project demo-aria), then
 //   node scripts/rules-test.mjs
 import { deleteApp, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import {
-  addDoc, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp,
+  addDoc, Bytes, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp,
   setDoc, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
 
@@ -83,6 +84,27 @@ await denied('signing up as admin of someone else\'s team', async () => {
   const p = await person('intruder2');
   await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: 'x', role: 'admin', orgId: a1.orgId, active: true });
 });
+let fileId = '';
+const fileMeta = { driverUid: d1.uid, driverName: 'driver1', name: 'p.svcr', dataset: 'x', day: 'd', units: 1, depots: 1, size: 3, parts: 1, createdAt: serverTimestamp() };
+await allowed('admin sends a plan file to their driver', async () => {
+  const ref = doc(collection(a1.db, 'orgs', a1.orgId, 'files'));
+  const b = writeBatch(a1.db);
+  b.set(ref, fileMeta);
+  b.set(doc(ref, 'parts', '0'), { i: 0, data: Bytes.fromUint8Array(new Uint8Array([1, 2, 3])) });
+  await b.commit();
+  fileId = ref.id;
+});
+await denied('admin sends a plan file to a driver of another team', () => addDoc(collection(a2.db, 'orgs', a2.orgId, 'files'), fileMeta));
+await denied('driver sends a plan file', () => addDoc(collection(d1.db, 'orgs', a1.orgId, 'files'), fileMeta));
+await allowed('driver reads their plan file', async () => {
+  await getDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId));
+  await getDocs(collection(d1.db, 'orgs', a1.orgId, 'files', fileId, 'parts'));
+});
+await denied('another driver reads that plan file', () => getDoc(doc(d2.db, 'orgs', a1.orgId, 'files', fileId)));
+await denied('another driver reads what is inside that plan file', () => getDocs(collection(d2.db, 'orgs', a1.orgId, 'files', fileId, 'parts')));
+await allowed('driver marks the plan file opened', () => updateDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId), { openedAt: serverTimestamp() }));
+await denied('driver changes who the plan file is for', () => updateDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId), { driverUid: d2.uid }));
+await denied('driver changes the plan file contents', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId, 'parts', '0'), { i: 0, data: Bytes.fromUint8Array(new Uint8Array([9])) }));
 await denied('admin of another team pauses a driver', () => updateDoc(doc(a2.db, 'users', d1.uid), { active: false }));
 await allowed('admin pauses their driver', () => updateDoc(doc(a1.db, 'users', d1.uid), { active: false }));
 await denied('driver un-pauses themself', () => updateDoc(doc(d1.db, 'users', d1.uid), { active: true }));
