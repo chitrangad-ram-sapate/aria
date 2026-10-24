@@ -3,15 +3,14 @@
 // method, shipments by depot, shortages in plain words, extra stock, forecasts and technical details.
 import { engine } from '../engine';
 import { SVCR_MIME, shareFile } from '../native';
-import { forecastLabel, isStale, loadScenario, nextRid, notify, rerender, scheduleValidate, state } from '../state';
+import { forecastLabel, isStale, loadCsvText, loadSample, nextRid, notify, persist, rerender, scheduleValidate, state } from '../state';
+import { networkDiagram } from './network';
 import { Json, badge, bandBar, errorBox, fmt, h, icon, kv, label, mount, num, openSheet, pagedTable, rupees, segmented, select, short, table, toast } from '../ui';
 
 let show: 'aria' | 'baseline_a' = 'aria';
-let importing = false;
 const replays: Record<string, Json> = {};
 let godownFilter = '';
 let search = '';
-let stockBox: HTMLElement;
 let statusBox: HTMLElement;
 let resultBox: HTMLElement;
 
@@ -32,10 +31,9 @@ export const godownName = (id: string) => nameOf(state.scenario?.godowns, 'godow
 export const townName = (id: string) => nameOf(state.scenario?.towns, 'town_id', id);
 
 export function render(root: HTMLElement) {
-  stockBox = h('div', {});
   statusBox = h('section', { class: 'card', 'aria-live': 'polite' });
   resultBox = h('div', {});
-  mount(root, pickers(), statusBox, resultBox);
+  mount(root, dataCard(), statusBox, resultBox);
   update();
 }
 
@@ -45,96 +43,153 @@ export function update() {
   drawResult();
 }
 
-function pickers() {
-  const nets = state.networks.filter((n) => state.scenarios.some((s) => s.network_id === n.network_id))
-    .map((n): [string, string] => [n.network_id, n.name || n.network_id]);
-  const scs = state.scenarios.filter((s) => s.network_id === state.networkId).map((s): [string, string] => [s.scenario_id, s.scenario_id.replace(/_/g, ' ')]);
+function dataCard() {
+  const d = state.data, sc = state.scenario;
+  const samples = state.scenarios.map((x): [string, string] => [x.scenario_id, x.scenario_id.replace(/_/g, ' ')]);
+  let sample = samples[0]?.[0] ?? '';
+  const upload = [
+    h('input', { type: 'file', accept: '.csv,text/csv,text/comma-separated-values,text/plain', id: 'csv-file', class: 'visually-hidden', onchange: (e: Event) => uploadCsv(e.target as HTMLInputElement) }),
+    h('label', { for: 'csv-file', class: `btn ${sc ? '' : 'primary '}block`, role: 'button', tabIndex: 0, onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') document.getElementById('csv-file')?.click(); } },
+      icon('upload'), state.dataBusy ? 'Reading your file...' : sc ? 'Upload a CSV' : 'Upload your data (CSV)')];
+  const errs = state.dataErrors && h('div', { class: 'alert bad', role: 'alert' },
+    h('strong', {}, 'The file was not loaded. Nothing was changed.'),
+    h('p', { class: 'small' }, 'Fix these rows in your spreadsheet and upload again:'),
+    table(state.dataErrors, [['section', 'Table', (v) => v || '-'], ['line', 'Line', (v) => (v == null ? '-' : String(v))], ['message', 'Problem']]));
+  const samplePicker = samples.length > 0 && h('details', { class: 'small' }, h('summary', {}, 'Try a sample dataset instead'),
+    h('div', { class: 'grid2' }, select(samples, sample, (v) => { sample = v; }, 'Sample dataset'),
+      h('button', { class: 'btn', disabled: state.dataBusy, onclick: () => loadSample(sample) }, 'Load sample')),
+    h('p', { class: 'note' }, 'Samples are loaded through the same CSV reader as your own files.'));
+  if (!sc) {
+    return h('section', { class: 'card' },
+      h('p', { class: 'eyebrow' }, 'Start with your data'),
+      h('p', { class: 'small' }, 'One CSV file holds your products, depots, towns, routes, stock and demand (or past sales). ARIA plans from exactly what is in it.'),
+      upload, errs,
+      h('div', { class: 'grid2' },
+        h('button', { class: 'btn', onclick: downloadTemplate }, icon('share'), 'Get a template'),
+        h('button', { class: 'btn', onclick: formatSheet }, icon('list'), 'What goes in it?')),
+      samplePicker);
+  }
+  const counts = `${num(sc.godowns.length)} depots · ${num(sc.towns.length)} towns · ${num(sc.products.length)} products · ${num(sc.lots.length)} stock lots · ${num(sc.demand.length)} forecasts`;
   return h('section', { class: 'card' },
+    h('div', { class: 'row between' }, h('div', {}, h('p', { class: 'eyebrow' }, d?.source === 'sample' ? 'Sample data' : 'Your data'), h('strong', {}, state.scenarioId)),
+      badge(d?.source === 'sample' ? 'sample' : 'from CSV', d?.source === 'sample' ? 'warn' : 'ok')),
+    h('p', { class: 'small muted' }, counts),
+    d?.kept?.length > 0 && h('p', { class: 'note' }, `Last upload replaced ${Object.keys(d.sections ?? {}).join(', ')}; kept ${d.kept.join(', ')} from before.`),
+    d?.forecast && h('p', { class: 'note' }, `Demand forecast from ${num(d.forecast.days)} days of sales (${d.forecast.first} to ${d.forecast.last}): ${d.forecast.label}${d.forecast.note ? ` (${d.forecast.note})` : ''}.`),
+    d?.warnings?.length > 0 && h('details', { class: 'small' }, h('summary', {}, `${d.warnings.length} note(s) about the file`), h('ul', {}, d.warnings.map((w: string) => h('li', {}, w)))),
+    upload, errs,
+    h('p', { class: 'note' }, 'A file with only some tables (for example just stock) updates those and keeps the rest.'),
     h('div', { class: 'grid2' },
-      h('label', {}, 'Distribution network', select(nets, state.networkId, async (v) => {
-        state.networkId = v;
-        const first = state.scenarios.find((s) => s.network_id === v);
-        if (first) await loadScenario(first.scenario_id);
-      }, 'Distribution network')),
-      h('label', {}, 'Stock and demand for', select(scs, state.scenarioId, (v) => loadScenario(v), 'Scenario'))),
-    h('input', { type: 'file', accept: '.csv,text/csv', id: 'csv-file', class: 'visually-hidden', onchange: (e: Event) => importCsv(e.target as HTMLInputElement) }),
-    h('label', { for: 'csv-file', class: 'btn small block', role: 'button', tabIndex: 0 }, icon('upload'), importing ? 'Forecasting on this phone...' : 'Use my own sales (CSV)'),
-    h('p', { class: 'note' }, 'CSV columns: date, item, outlet/town, qty, price. ARIA forecasts tomorrow from your history.'),
-    importInfo());
+      h('button', { class: 'btn', onclick: downloadCurrent }, icon('share'), 'Download as CSV'),
+      h('button', { class: 'btn', onclick: formatSheet }, icon('list'), 'CSV format')),
+    samplePicker);
 }
 
-function importInfo() {
-  const i = state.importInfo;
-  if (!i) return null;
-  return h('div', { class: 'small' }, badge(i.method === 'ml' ? 'model forecast' : 'statistical fallback', i.method === 'ml' ? 'ok' : 'warn'),
-    h('p', {}, `${i.label}. ${num(i.pairs)} town-product pairs, ${i.first} to ${i.last} (${num(i.days)} days), forecast for ${i.forecast_day}, ${i.seconds} s.`),
-    i.note && h('p', { class: 'muted' }, `Fallback reason: ${i.note}`),
-    h('p', { class: 'muted' }, `Rows used ${num(i.counts.used)} of ${num(i.counts.rows)}; unknown town ${num(i.counts.unknown_town)}, unknown item ${num(i.counts.unknown_item)}, bad value ${num(i.counts.bad_value)}.`));
-}
-
-async function importCsv(input: HTMLInputElement) {
+async function uploadCsv(input: HTMLInputElement) {
   const f = input.files?.[0];
   input.value = '';
-  if (!f || !state.scenario) return;
-  importing = true;
-  rerender();
+  if (!f) return;
+  if (f.size > 20 * 1024 * 1024) { state.dataErrors = [{ section: '', line: null, message: 'The file is larger than 20 MB.' }]; return rerender(); }
+  const ok = await loadCsvText(await f.text(), f.name, 'csv');
+  if (ok) toast(`Loaded ${f.name}`);
+}
+
+async function downloadTemplate() {
   try {
-    const r = await engine.importCsv(await f.text(), state.scenario);
-    if (!r.ok) {
-      toast(`Import failed: ${r.error}`);
-    } else {
-      const { scenario, ...info } = r;
-      state.scenario = scenario;
-      state.importInfo = info;
-      state.imported = new Set(scenario.demand.slice(-r.pairs).map((d: Json) => `${d.town_id}|${d.product_id}`));
-      state.plan = null;
-      state.whatif = null;
-      scheduleValidate(0);
-    }
-  } catch (e: any) {
-    toast(`Import failed: ${e.message}`);
-  }
-  importing = false;
-  rerender();
+    const small = state.scenarios.find((x) => /edge/.test(x.scenario_id)) ?? state.scenarios[0];
+    await shareFile('aria_data_template.csv', await engine.sampleCsv(small.scenario_id), 'text/csv');
+  } catch (e: any) { toast(`Could not create the template: ${e.message}`); }
 }
 
-function setLot(i: number, key: string, raw: string) {
-  const lot = state.scenario.lots[i];
-  lot[key] = /^-?\d+$/.test(raw.trim()) ? Number(raw) : raw; // non-integers are reported by validate (E_TYPE)
-  scheduleValidate();
+async function downloadCurrent() {
+  try {
+    await shareFile(`${String(state.scenarioId).replace(/[^\w-]+/g, '_') || 'aria_data'}.csv`, await engine.exportCsv(state.scenario), 'text/csv');
+  } catch (e: any) { toast(`Could not export: ${e.message}`); }
 }
 
+const ABOUT: Record<string, string> = {
+  settings: 'Optional. Rows of key,value: name, day, margin, salvage_share, repo_rate, freight_rs_per_tkm_55t / _road_avg / _6t.',
+  products: 'Each product: weight, shelf life and selling price in rupees.',
+  depots: 'Where stock is held. capacity_units = most units it can load in one night (empty = no limit).',
+  towns: 'Where stock is needed.',
+  routes: 'Which depot can serve which town: road km, days on the road, truck class (55t, road_avg or 6t), active true/false.',
+  stock: 'Lots in depots: units and days of shelf life left. lot_id is optional.',
+  town_stock: 'Optional. Stock already in towns.',
+  demand: 'Demand for the planning day per town and product: either the 9 quantile columns q0.005 … q0.995, or mean and sd.',
+  sales: 'Instead of demand: past daily sales (date as YYYY-MM-DD). ARIA forecasts the next day on this phone.',
+};
+let formatDoc: Json[] | null = null;
+async function formatSheet() {
+  formatDoc ??= await engine.csvFormat();
+  const typeName: Record<string, string> = { str: 'text', int: 'whole number', float: 'number', bool: 'true/false' };
+  openSheet('CSV format',
+    h('p', { class: 'small' }, 'One file, several tables. Start each table with a row whose first cell is "# name" (for example "# products"), then a header row, then the data. A file with a single table needs no marker: its header tells which table it is.'),
+    h('pre', { class: 'code' }, '# depots\ndepot_id,name,capacity_units\nD1,North depot,\nD2,South depot,400\n\n# routes\ndepot_id,town_id,road_km,transit_days,vehicle_class\nD1,T1,20,1,road_avg'),
+    formatDoc.map((sec: Json) => h('div', {}, h('h3', {}, `# ${sec.section}`), h('p', { class: 'small muted' }, ABOUT[sec.section] ?? ''),
+      table(sec.columns.filter((c: Json) => !/^q0\./.test(c.name) || c.name === 'q0.005'),
+        [['name', 'Column', (v) => (v === 'q0.005' ? 'q0.005 … q0.995' : v)], ['type', 'Type', (v) => typeName[v] ?? v],
+          ['required', 'Needed', (v) => (v ? 'yes' : 'no')], ['default', 'If empty', (v, r) => (r.required ? '-' : v == null ? 'none' : String(v))]]))),
+    h('p', { class: 'note' }, 'Quantile columns: q0.005, q0.025, q0.165, q0.25, q0.5, q0.75, q0.835, q0.975, q0.995 (all nine, never decreasing).'));
+}
+
+/** Stock editor: changes stay a draft until Save, which applies them, re-checks the inputs and stores the dataset. */
 function stockSheet() {
-  drawStock();
-  openSheet('Edit depot stock', h('p', { class: 'muted small' }, 'Change units or days of shelf life left. Results update to STALE until you plan again.'), stockBox);
-}
-
-function drawStock() {
   const sc = state.scenario;
-  if (!sc) return mount(stockBox, h('p', { class: 'muted' }, 'Loading...'));
+  if (!sc) return;
+  const draft: Json[] = sc.lots.map((l: Json) => ({ ...l }));
+  const bad = new Set<number>();
+  let dirty = false;
   const godowns = sc.godowns.map((g: Json): [string, string] => [g.godown_id, g.name || g.godown_id]);
   const list = h('div', {});
+  const status = h('p', { class: 'small muted', 'aria-live': 'polite' });
+  const save = h('button', { class: 'btn primary block', disabled: true, onclick: () => {
+    sc.lots = draft;
+    dirty = false;
+    scheduleValidate(0);
+    persist();
+    toast('Stock saved');
+    paintStatus();
+    (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
+  } }, 'Save stock');
+  const discard = h('button', { class: 'btn block', onclick: () => (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close() }, 'Cancel');
+  const paintStatus = () => {
+    save.disabled = !dirty || bad.size > 0;
+    status.textContent = bad.size ? `${bad.size} value(s) must be whole numbers of 0 or more.` : dirty ? 'Unsaved changes.' : 'No changes yet.';
+    status.className = bad.size ? 'small bad-text' : 'small muted';
+  };
+  const edit = (i: number, key: string, input: HTMLInputElement) => {
+    const raw = input.value.trim();
+    const ok = /^\d+$/.test(raw);
+    input.setAttribute('aria-invalid', String(!ok));
+    const k = i * 2 + (key === 'qty_units' ? 0 : 1);
+    if (ok) { draft[i][key] = Number(raw); bad.delete(k); } else bad.add(k);
+    dirty = true;
+    paintStatus();
+  };
   const draw = () => {
     const q = search.trim().toLowerCase();
-    const rows = sc.lots.map((l: Json, i: number) => ({ l, i }))
-      .filter(({ l }: Json) => (!godownFilter || l.godown_id === godownFilter) && (!q || `${l.lot_id} ${l.product_id}`.toLowerCase().includes(q)));
+    const rows = draft.map((l, i) => ({ l, i }))
+      .filter(({ l }) => (!godownFilter || l.godown_id === godownFilter) && (!q || `${l.lot_id} ${l.product_id}`.toLowerCase().includes(q)));
     let n = 15;
     const paint = () => mount(list,
       h('p', { class: 'muted small' }, `${num(rows.length)} lots`),
-      h('ul', { class: 'lots' }, rows.slice(0, n).map(({ l, i }: Json) => h('li', {},
+      h('ul', { class: 'lots' }, rows.slice(0, n).map(({ l, i }) => h('li', {},
         h('div', { class: 'lot-id' }, h('strong', {}, l.product_id), h('span', { class: 'muted small' }, `${godownName(l.godown_id)} · ${l.lot_id}`)),
-        h('label', { class: 'mini' }, 'Units', h('input', { type: 'text', inputMode: 'numeric', value: String(l.qty_units), 'aria-label': `Units for ${l.lot_id}`, oninput: (e: Event) => setLot(i, 'qty_units', (e.target as HTMLInputElement).value) })),
-        h('label', { class: 'mini' }, 'Days left', h('input', { type: 'text', inputMode: 'numeric', value: String(l.remaining_life_days), 'aria-label': `Days of shelf life left for ${l.lot_id}`, oninput: (e: Event) => setLot(i, 'remaining_life_days', (e.target as HTMLInputElement).value) })),
+        h('label', { class: 'mini' }, 'Units', h('input', { type: 'text', inputMode: 'numeric', value: String(l.qty_units), 'aria-label': `Units for ${l.lot_id}`, oninput: (e: Event) => edit(i, 'qty_units', e.target as HTMLInputElement) })),
+        h('label', { class: 'mini' }, 'Days left', h('input', { type: 'text', inputMode: 'numeric', value: String(l.remaining_life_days), 'aria-label': `Days of shelf life left for ${l.lot_id}`, oninput: (e: Event) => edit(i, 'remaining_life_days', e.target as HTMLInputElement) })),
       ))),
       rows.length > n && h('button', { class: 'btn ghost', onclick: () => { n += 50; paint(); } }, `Show more (${num(rows.length - n)} left)`));
     paint();
   };
-  mount(stockBox,
+  openSheet('Edit depot stock',
+    h('p', { class: 'muted small' }, 'Change units or days of shelf life left, then tap Save. Saved stock is kept on this phone and used for the next plan.'),
     h('div', { class: 'grid2' },
       select([['', 'All depots'], ...godowns], godownFilter, (v) => { godownFilter = v; draw(); }, 'Filter by depot'),
       h('input', { type: 'search', placeholder: 'Search product or lot', value: search, 'aria-label': 'Search lots', oninput: (e: Event) => { search = (e.target as HTMLInputElement).value; draw(); } })),
-    list);
+    list,
+    h('div', { class: 'sheet-actions' }, status, h('div', { class: 'grid2' }, discard, save)));
   draw();
+  paintStatus();
 }
 
 function issues(report: Json) {
@@ -150,6 +205,8 @@ function drawStatus() {
   const r = state.report;
   const valid = !state.validating && r?.valid;
   const sc = state.scenario;
+  statusBox.hidden = !sc; // nothing to check or plan until a dataset is loaded
+  if (!sc) return mount(statusBox);
   mount(statusBox,
     h('div', { class: 'row between' },
       h('div', {}, h('p', { class: 'eyebrow' }, 'Ready to plan'),
@@ -284,6 +341,7 @@ function drawResult() {
         h('button', { class: 'tile', onclick: stockSheet }, icon('edit'), 'Edit stock')),
       stale && h('p', { class: 'note' }, 'Inputs changed after planning. Plan again before sharing.'),
       h('p', { class: 'note' }, `Planned on this phone in ${(resp.solve_ms / 1000).toFixed(1)} s · ${shown === aria ? 'ARIA' : 'usual method'}`)),
+    resp.dashboard?.[shown === aria ? 'aria' : 'baseline_a'] && h('section', { class: 'card' }, networkDiagram(resp.dashboard[shown === aria ? 'aria' : 'baseline_a'])),
     goalsCard(resp),
     h('div', { class: 'section-head' }, h('h2', {}, 'Shipments by depot', h('span', { class: 'count' }, num(depots.length))), h('span', { class: 'small muted' }, 'Units')),
     rows(depots, (g) => {
@@ -376,10 +434,10 @@ export async function explainSheet(p: Json, row: Json) {
 function forecasts() {
   const rows: Json[] = state.scenario?.demand ?? [];
   const max = Math.max(1, ...rows.map((d) => d.quantiles[8] ?? 0));
-  const model = (r: Json) => (state.imported?.has(`${r.town_id}|${r.product_id}`) ? (state.importInfo?.method === 'ml' ? 'imported: model' : 'imported: fallback') : 'bundled');
+  const model = (r: Json) => forecastLabel(r.town_id, r.product_id);
   return [h('p', { class: 'muted small' }, `Tomorrow's demand per town and product: the bar shows the likely range (darkest = middle half), the tick the most likely value. ${forecastLabel()}.`),
     h('ul', { class: 'list-cards' }, rows.slice(0, 40).map((d) => h('li', {},
-      h('div', { class: 'row between small' }, h('span', {}, `${townName(d.town_id)} · ${d.product_id}`), h('span', { class: 'muted' }, `about ${fmt('q', d.quantiles[4])} · ${model(d)}`)),
+      h('div', { class: 'row between small' }, h('span', {}, `${townName(d.town_id)} · ${d.product_id}`), h('span', { class: 'muted' }, `about ${fmt('q', d.quantiles[4])}`)),
       bandBar(d.quantiles, max)))),
     rows.length > 40 && h('h3', {}, 'All rows'),
     rows.length > 40 && pagedTable(rows, [['town_id', 'Town', (v) => townName(v)], ['product_id', 'Product'], ['quantiles', 'Most likely', (q) => fmt('q', q[4])],

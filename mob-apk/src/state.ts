@@ -3,12 +3,17 @@
 import { engine } from './engine';
 import type { Json } from './ui';
 
+export type Variant = { id: string; name: string; params: Json };
+
 export const state = {
   networks: [] as Json[],
-  scenarios: [] as Json[],
+  scenarios: [] as Json[], // bundled sample datasets
   networkId: '',
-  scenarioId: '',
-  scenario: null as Json, // the editable scenario document
+  scenarioId: '', // name of the loaded dataset
+  scenario: null as Json, // the editable scenario document, always built from a data CSV
+  data: null as Json, // how the current dataset was loaded: {name, source, sections, kept, warnings, forecast, history}
+  dataErrors: null as Json[] | null, // rows rejected by the last upload (the dataset was left unchanged)
+  dataBusy: false,
   report: null as Json, // validate() result for the current inputs
   validating: false,
   rid: 0, // last request id issued (all compute calls)
@@ -16,14 +21,17 @@ export const state = {
   planRid: 0,
   planBusy: false,
   planError: '',
-  whatif: null as null | { rid: number; resp: Json; key: string },
-  whatifRid: 0,
-  whatifBusy: false,
-  whatifError: '',
+  lab: {
+    variants: [] as Variant[],
+    selected: '',
+    result: null as null | { rid: number; resp: Json; key: string },
+    busy: false,
+    error: '',
+    sweep: null as null | { param: string; values: number[]; resp: Json; key: string },
+    sweepBusy: false,
+  },
   bundledForecast: 'LightGBM quantile forecast, conformal-calibrated',
   engineInfo: '', // e.g. "Python 3.12.7 · SciPy HiGHS"
-  importInfo: null as Json, // last on-device CSV import into the current scenario
-  imported: null as Set<string> | null, // "town|product" pairs whose demand came from that import
 };
 
 let fullRender = () => {};
@@ -59,23 +67,82 @@ export function scheduleValidate(delay = 250) {
   }, delay);
 }
 
-export async function loadScenario(id: string) {
-  state.scenarioId = id;
-  state.scenario = await engine.getScenario(id);
-  state.networkId = state.scenario.network_id ?? state.networkId;
+// ---------- datasets: everything enters through a data CSV ----------
+const STORE = 'aria.dataset.v1';
+
+/** Parse a data CSV. Sections the file lacks are kept from the current dataset (reported). */
+export async function loadCsvText(text: string, name: string, source: 'csv' | 'sample') {
+  state.dataBusy = true;
+  state.dataErrors = null;
+  rerender();
+  try {
+    const r = await engine.loadCsv(text, source === 'sample' ? null : state.scenario);
+    if (!r.ok) {
+      state.dataErrors = r.errors?.length ? r.errors : [{ section: '', line: null, message: 'The file could not be read.' }];
+      if (r.error_count > (r.errors?.length ?? 0)) state.dataErrors!.push({ section: '', line: null, message: `…${r.error_count - r.errors.length} more problems` });
+      return false;
+    }
+    const sc = r.scenario;
+    if (source === 'csv' && !r.sections.settings && !state.scenario) sc.scenario_id = name.replace(/\.csv$/i, '');
+    setDataset(sc, { name: sc.scenario_id || name, file: name, source, sections: r.sections, kept: r.kept, warnings: r.warnings, forecast: r.forecast, history: r.history ?? state.data?.history ?? null });
+    return true;
+  } catch (e: any) {
+    state.dataErrors = [{ section: '', line: null, message: e.message }];
+    return false;
+  } finally {
+    state.dataBusy = false;
+    rerender();
+  }
+}
+
+export async function loadSample(id: string) {
+  const text = await engine.sampleCsv(id);
+  return loadCsvText(text, `${id}.csv`, 'sample');
+}
+
+function setDataset(sc: Json, info: Json) {
+  state.scenario = sc;
+  state.scenarioId = info.name;
+  state.networkId = sc.network_id ?? '';
+  state.data = info;
   state.plan = null;
-  state.whatif = null;
-  state.planError = state.whatifError = '';
-  state.importInfo = null;
-  state.imported = null;
-  fullRender();
+  state.planError = '';
+  state.lab.result = null;
+  state.lab.sweep = null;
+  state.lab.error = '';
+  persist();
   scheduleValidate(0);
+}
+
+/** Keep the dataset on this device as its CSV (merged sections and saved edits included). */
+export async function persist() {
+  if (!state.scenario) return;
+  try {
+    const csv = await engine.exportCsv(state.scenario);
+    const { history, ...meta } = state.data ?? {};
+    localStorage.setItem(STORE, JSON.stringify({ csv, meta, history }));
+  } catch { /* storage full or blocked: the dataset still works for this session */ }
+}
+
+export async function restoreSaved(): Promise<boolean> {
+  let saved: Json = null;
+  try { saved = JSON.parse(localStorage.getItem(STORE) ?? 'null'); } catch { saved = null; }
+  if (!saved?.csv) return false;
+  const r = await engine.loadCsv(saved.csv, null);
+  if (!r.ok) return false;
+  setDataset(r.scenario, { ...saved.meta, history: saved.history ?? null, restored: true });
+  return true;
+}
+
+export function forgetSaved() {
+  try { localStorage.removeItem(STORE); } catch { /* nothing stored */ }
 }
 
 export const network = () => state.networks.find((n) => n.network_id === state.networkId) ?? {};
 
-/** Which model produced a (town, product)'s demand; with no pair, the bundled forecasts' model. */
+/** Which model produced a (town, product)'s demand. */
 export function forecastLabel(town?: string, product?: string): string {
-  if (town && state.imported?.has(`${town}|${product}`)) return state.importInfo?.label ?? 'imported';
-  return state.bundledForecast;
+  const fc = state.data?.forecast;
+  if (fc && (!town || fc.keys?.includes(`${town}|${product}`))) return fc.label;
+  return state.data?.source === 'sample' ? state.bundledForecast : 'forecast given in your CSV';
 }
