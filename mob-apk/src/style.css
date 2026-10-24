@@ -280,6 +280,8 @@ dialog.sheet::backdrop { background: rgb(17 24 39 / 0.45); }
 .list-cards li { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .list-cards li:last-child { border-bottom: 0; }
 .grid2 > * { min-width: 0; }
+.grid2 + .grid2, :is(input, textarea, select) + .grid2 { margin-top: 10px; }
+.sheet-body > .card { margin-top: 16px; }
 
 /* ---------- Charts and dashboards (charts.ts, network.ts, results.ts, lab.ts) ---------- */
 .stale { opacity: 0.6; }
