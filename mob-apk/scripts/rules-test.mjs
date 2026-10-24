@@ -198,6 +198,8 @@ await allowed('admin makes a recipient code (only its salted hash is stored)', a
   await step(a1, T, 0, { codeGen: 1 });
 });
 await denied('driver reads the recipient code', () => getDoc(doc(stopDoc(d1.db, T.id, '0'), 'code', '1')));
+await denied('driver overwrites the recipient code', () => setDoc(doc(stopDoc(d1.db, T.id, '0'), 'code', '1'), { hash: sha(`${salt}:000000`), salt, expiresAt: Timestamp.fromMillis(Date.now() + 3600e3) }));
+await allowed('admin writes a stuck code number again (same code)', () => setDoc(doc(stopDoc(a1.db, T.id, '0'), 'code', '1'), { hash: sha(`${salt}:${code}`), salt, expiresAt: Timestamp.fromMillis(Date.now() + 3600e3), createdAt: serverTimestamp() }));
 const tryDoc = (db, n, c) => setDoc(doc(stopDoc(db, T.id, '0'), 'tries', `1_${n}`), { gen: 1, n, code: c, by: d1.uid, at: serverTimestamp() });
 await allowed('driver records a code try (a wrong one)', () => tryDoc(d1.db, 1, '111111'));
 await denied('a wrong code does not hand in the proof', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi', gen: 1, n: 1 } }));
