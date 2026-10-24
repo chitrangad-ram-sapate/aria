@@ -1,6 +1,8 @@
 // App state shared by the views, and the result-integrity rules (implementation.md §7):
 // increasing request ids, only the latest result is shown, edits mark results STALE.
 import { engine } from './engine';
+import { sampleName } from './plain';
+import type { Profile, Report, Trip } from './cloud';
 import type { Json } from './ui';
 
 export type Variant = { id: string; name: string; params: Json };
@@ -30,6 +32,11 @@ export const state = {
     sweep: null as null | { param: string; values: number[]; resp: Json; key: string },
     sweepBusy: false,
   },
+  me: null as Profile | null, // signed-in user
+  team: null as null | { name: string; joinCode: string },
+  drivers: [] as Profile[], // admin: every driver in the team
+  trips: [] as Trip[], // admin: all team trips; driver: their own
+  reports: [] as Report[],
   bundledForecast: 'LightGBM quantile forecast, conformal-calibrated',
   engineInfo: '', // e.g. "Python 3.12.7 · SciPy HiGHS"
 };
@@ -84,7 +91,7 @@ export async function loadCsvText(text: string, name: string, source: 'csv' | 's
     }
     const sc = r.scenario;
     if (source === 'csv' && !r.sections.settings && !state.scenario) sc.scenario_id = name.replace(/\.csv$/i, '');
-    setDataset(sc, { name: sc.scenario_id || name, file: name, source, sections: r.sections, kept: r.kept, warnings: r.warnings, forecast: r.forecast, history: r.history ?? state.data?.history ?? null });
+    setDataset(sc, { name: source === 'sample' ? sampleName(sc.scenario_id) : sc.scenario_id || name, file: name, source, sections: r.sections, kept: r.kept, warnings: r.warnings, forecast: r.forecast, history: r.history ?? state.data?.history ?? null });
     return true;
   } catch (e: any) {
     state.dataErrors = [{ section: '', line: null, message: e.message }];

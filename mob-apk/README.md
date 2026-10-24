@@ -28,6 +28,13 @@ Views:
 
 All data enters through one CSV file (`docs/csv-format.md`).
 
+**Accounts and roles** (Firebase Auth + Firestore, free Spark plan; `src/cloud.ts`, `firestore.rules`):
+- **Admin** creates a team, gets a 6-letter team code and has full control: data, planning, What if, Results, plan files and the **Team** screen. The Team screen shows every driver (active or paused, last seen), sends tonight's trips (one per depot), tracks deliveries and lists drivers' problem reports.
+- **Driver** joins with the team code and sees only **My trips** (load, deliver stop by stop, share the pick list), **Report a problem** and **Account**. Drivers never load the planner.
+- The admin can pause a driver, which locks them out at once. The rules stop anyone from changing their own role, team or paused state, and keep each team's data apart.
+
+Planning still runs on the phone. Only people, trips and reports go to Firestore, which also works offline and syncs later.
+
 ## Develop
 
 Node 22+.
@@ -41,9 +48,13 @@ npm run dev          # http://localhost:5173 (first run downloads the Pyodide wh
 
 ```bash
 npm run build        # dist/  (web bundle, about 44 MB, mostly Pyodide, SciPy and scikit-learn)
-npm run smoke        # headless Chrome at phone size: CSV uploads (broken, two datasets, partial, sales), plan, network,
-                     # Results charts, stock Save, What-if scenarios and steps, sample replay, .svcr export, reload restore
+npm run smoke        # headless Chrome at phone size, with the emulators running: admin sign-up, CSV uploads, plan, network,
+                     # Results charts, stock Save, What if, .svcr export, reload; a driver joins, gets, loads and
+                     # delivers a trip, reports a problem and is paused; sign out and back in
 cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest tests app_tests -q
+npm run emulators    # local sign-in and database for testing (needs Java 11+); smoke uses them via ?emulators=1
+npm run rules-test   # tries what a careless or curious user might: other teams' data, own role, paused access
+npm run deploy:rules # publish firestore.rules and indexes to the live project
 ```
 
 ## Android

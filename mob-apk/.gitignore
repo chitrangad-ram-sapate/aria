@@ -17,3 +17,4 @@ ios/App/App/public/
 ios/DerivedData/
 __pycache__/
 .pytest_cache/
+*-debug.log

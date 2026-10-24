@@ -2,7 +2,10 @@
 // start with no data, upload a broken CSV (rejected with line numbers), two different generated datasets
 // (every count and chart follows the file), a stock-only update, a sales history, edit and Save stock,
 // What-if scenarios with a route restriction and a step sweep, the Results dashboard, a sample with its
-// replay, the .svcr export, and a reload that restores the dataset. Screenshots go to a temp folder.
+// replay, the .svcr export, and a reload that restores the dataset. Then the team: a driver joins with the
+// admin's code, gets a trip, loads and delivers it and reports a problem; the admin sees it all and pauses the driver.
+// Accounts live in the Firebase emulators (start them first: npx firebase-tools emulators:start --only auth,firestore
+// --project demo-aria). Screenshots go to a temp folder.
 // Usage: npm run build && npm run smoke   (CHROME_PATH=... to pick a browser; default: installed Chrome)
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,12 +14,17 @@ import { chromium } from 'playwright-core';
 import { preview } from 'vite';
 
 const server = await preview({ preview: { port: 4179, strictPort: true } });
-const url = 'http://localhost:4179/';
+const url = 'http://localhost:4179/?emulators=1';
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+const page = await context.newPage();
+const run = Date.now().toString(36);
+const ADMIN = { name: 'Asha Patil', team: 'Patil Distributors', email: `admin-${run}@example.com`, password: 'secret123' };
+const DRIVER = { name: 'Ravi Kumar', phone: '9876543210', vehicle: 'MH09 AB 1234', email: `driver-${run}@example.com`, password: 'secret123' };
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+let allow400 = false; // the wrong-password step makes the sign-in service answer 400 on purpose
+page.on('console', (m) => { if (m.type() === 'error' && !(allow400 && /status of 400/.test(m.text()))) errors.push(m.text()); });
 const out = mkdtempSync(join(tmpdir(), 'aria-e2e-'));
 const step = (msg) => console.log(`ok  ${msg}`);
 const shot = (name) => page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
@@ -49,7 +57,7 @@ const upload = async (name, text) => {
 };
 const tab = (name) => page.locator('nav.tabs button.tab', { hasText: name }).click();
 const plan = async () => {
-  await page.getByText('Inputs OK').waitFor({ timeout: 60_000 });
+  await page.getByText('Data looks good').waitFor({ timeout: 60_000 });
   const t = Date.now();
   await page.locator('#main button.btn.primary', { hasText: 'Plan tonight' }).click();
   await page.getByText('To ship tonight').waitFor({ timeout: 180_000 });
@@ -58,9 +66,20 @@ const plan = async () => {
 
 try {
   await page.goto(url);
+  await page.getByRole('heading', { name: 'Sign in' }).waitFor({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  expect(await page.locator('input[name=email]:invalid').count() === 1, 'empty sign-in not blocked');
+  await page.getByRole('button', { name: /I manage a team/ }).click();
+  for (const [k, v] of Object.entries({ name: ADMIN.name, team: ADMIN.team, email: ADMIN.email, password: '123' })) await page.fill(`input[name=${k}]`, v);
+  await page.getByRole('button', { name: 'Create team' }).click();
+  expect(await page.locator('input[name=password]:invalid').count() === 1, 'short password not blocked');
+  await page.fill('input[name=password]', ADMIN.password);
+  await page.getByRole('button', { name: 'Create team' }).click();
   await page.getByText('Start with your data').waitFor({ timeout: 240_000 });
+  step('admin creates a team (short password refused) and lands on Home');
   expect(await page.locator('button.go').isDisabled(), 'plan button should be disabled with no data');
   expect(!(await page.getByText('How ARIA decides').count()), 'Assumptions screen still reachable');
+  expect(!(await page.getByText(/edge cases|scenario_hash|E_RANGE/i).count()), 'developer wording on Home');
   step(`engine booted in ${await page.evaluate(() => window.__ariaBootMs)} ms; no data loaded, planning disabled, no Assumptions screen`);
   await shot('01-empty');
 
@@ -153,7 +172,7 @@ try {
   await page.getByText('Try a sample dataset instead').click();
   await page.selectOption('select[aria-label="Sample dataset"]', 'kolhapur_normal_week');
   await page.getByRole('button', { name: 'Load sample' }).click();
-  await page.getByText('kolhapur_normal_week').first().waitFor({ timeout: 60_000 });
+  await page.locator('#main').getByText('Kolhapur: a normal week').first().waitFor({ timeout: 60_000 });
   const msS = await plan();
   step(`sample kolhapur_normal_week loaded through the CSV reader and planned in ${msS} ms`);
   await shot('05-home-sample');
@@ -176,7 +195,7 @@ try {
   await page.getByText('Up to date').waitFor({ timeout: 300_000 });
   const cards = await page.locator('section.card .kpi-grid').count();
   expect(cards === 3, `expected 3 scenario cards, got ${cards}`);
-  await page.getByText('Change from the baseline (%)').waitFor();
+  await page.getByText('Change from today (%)').waitFor();
   step(`What-if: 3 scenarios compared with the baseline (${opts ? 'truck restriction added' : 'restriction explained as impossible'}), cards and charts shown`);
   await shot('06-whatif');
 
@@ -187,8 +206,8 @@ try {
   step('step sweep: 4 demand steps planned, 4 line charts drawn');
 
   await tab('Results');
-  await page.getByText('Scenarios against the baseline').waitFor();
-  await page.getByText('Historical test: every method on past demand').waitFor({ timeout: 30_000 });
+  await page.getByText('Scenarios against today').waitFor();
+  await page.getByText('How ARIA did on past weeks').waitFor({ timeout: 30_000 });
   step('Results shows the scenario comparison and the labelled historical replay for the sample');
   await shot('07-results-sample');
 
@@ -200,9 +219,89 @@ try {
 
   // 9. reload restores the dataset
   await page.reload();
-  await page.getByText('kolhapur_normal_week').first().waitFor({ timeout: 240_000 });
-  await page.getByText('Inputs OK').waitFor({ timeout: 60_000 });
-  step('reload restores the last dataset from this device');
+  await page.locator('#main').getByText('Kolhapur: a normal week').first().waitFor({ timeout: 240_000 });
+  await page.getByText('Data looks good').waitFor({ timeout: 60_000 });
+  step('reload keeps the admin signed in and restores the last dataset');
+
+  // 10. team: a driver joins with the code
+  await plan();
+  await tab('Team');
+  const code = (await page.locator('.join-code').textContent()).trim();
+  expect(/^[A-Z0-9]{6}$/.test(code), `bad team code ${code}`);
+  const dctx = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  const dpage = await dctx.newPage();
+  dpage.on('pageerror', (e) => errors.push(`driver: ${e}`));
+  await dpage.goto(url);
+  await dpage.getByRole('button', { name: /I am a driver/ }).click();
+  await dpage.fill('input[name=code]', 'ZZZZZZ');
+  await dpage.getByText('No team with this code').waitFor();
+  await dpage.fill('input[name=code]', code.toLowerCase());
+  await dpage.getByText(`Team found: ${ADMIN.team}`).waitFor();
+  for (const k of ['name', 'phone', 'vehicle', 'email', 'password']) await dpage.fill(`input[name=${k}]`, DRIVER[k]);
+  await dpage.getByRole('button', { name: 'Join team' }).click();
+  await dpage.getByText('No trips right now').waitFor({ timeout: 60_000 });
+  const dtabs = await dpage.locator('nav.tabs button.tab').allTextContents();
+  expect(dtabs.join('|') === 'My trips|Report|Account', `driver tabs: ${dtabs}`);
+  expect(!(await dpage.locator('button.go').count()) && !(await dpage.getByText('Upload your data').count()), 'driver can reach planning');
+  step(`driver joins with code ${code} (a wrong code is refused) and sees only My trips, Report and Account`);
+  await dpage.screenshot({ path: join(out, '08-driver-empty.png'), fullPage: true });
+
+  // 11. admin sends trips; the driver works through one
+  await page.locator('.rows li', { hasText: DRIVER.vehicle }).first().waitFor({ timeout: 30_000 });
+  const pickers = page.locator('li.assign select');
+  const n = await pickers.count();
+  expect(n >= 1, 'no depot trips to send');
+  await pickers.first().selectOption({ label: `${DRIVER.name} · ${DRIVER.vehicle}` });
+  await page.getByRole('button', { name: 'Send 1 trip to drivers' }).click();
+  await page.getByText('Sent 1 trip').waitFor();
+  await page.getByText(`Sent to ${DRIVER.name}`).waitFor();
+  step(`admin sends tonight's first depot load (${n} depot trips in the plan) to the driver`);
+  await page.screenshot({ path: join(out, '09-admin-team.png'), fullPage: true });
+
+  await dpage.getByText('1 trip to do').waitFor({ timeout: 30_000 });
+  await dpage.getByRole('button', { name: 'I have loaded the truck' }).click();
+  await dpage.getByText('On the road').first().waitFor();
+  let left = await dpage.locator('section.trip button', { hasText: 'Delivered' }).count();
+  const stopsN = left;
+  while (left > 0) {
+    await dpage.locator('section.trip button', { hasText: 'Delivered' }).first().click();
+    await dpage.waitForFunction((k) => document.querySelectorAll('section.trip button').length === 0 || [...document.querySelectorAll('section.trip button')].filter((b) => b.textContent.includes('Delivered')).length < k, left);
+    left = await dpage.locator('section.trip button', { hasText: 'Delivered' }).count();
+  }
+  await dpage.getByText('Finished').waitFor({ timeout: 30_000 });
+  step(`driver loads the truck and delivers all ${stopsN} stops; the trip moves to Finished`);
+  await page.locator('.rows li', { hasText: `${DRIVER.name} · from` }).getByText('Delivered').waitFor({ timeout: 30_000 });
+  step('admin sees the trip as delivered');
+
+  await dpage.locator('nav.tabs button.tab', { hasText: 'Report' }).click();
+  await dpage.selectOption('select[aria-label="What happened"]', 'Road closed or blocked');
+  await dpage.fill('textarea', 'Bridge closed near the market');
+  await dpage.getByRole('button', { name: 'Send to admin' }).click();
+  await dpage.getByText('Sent to your admin').waitFor();
+  await page.getByText(`${DRIVER.name}: Road closed or blocked`).waitFor({ timeout: 30_000 });
+  step('driver reports a closed road; it appears on the admin Team screen');
+  await dpage.screenshot({ path: join(out, '10-driver-report.png'), fullPage: true });
+
+  // 12. admin pauses the driver
+  await page.locator('.rows li', { hasText: DRIVER.name }).filter({ hasText: 'Active' }).click();
+  await page.getByRole('button', { name: 'Pause this driver' }).click();
+  await dpage.getByText('Your account is paused').waitFor({ timeout: 30_000 });
+  step('admin pauses the driver; the driver is locked out at once');
+
+  // 13. sign out and back in as the admin
+  await page.locator('header button[aria-label="Account"]').click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('heading', { name: 'Sign in' }).waitFor({ timeout: 30_000 });
+  await page.fill('input[name=email]', ADMIN.email);
+  await page.fill('input[name=password]', 'wrongpass');
+  allow400 = true;
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByText('Wrong email or password.').waitFor({ timeout: 30_000 });
+  allow400 = false;
+  await page.fill('input[name=password]', ADMIN.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.locator('nav.tabs button.tab', { hasText: 'Team' }).waitFor({ timeout: 240_000 });
+  step('sign out, wrong password refused in plain words, sign back in as admin');
 
   if (errors.length) throw new Error(`page errors:\n${errors.join('\n')}`);
   console.log(`\nall checks passed; screenshots in ${out}`);
