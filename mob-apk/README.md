@@ -24,6 +24,7 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 
 Views:
 - **Home:** load your data CSV (or a sample), plan, network diagram, shortages, pick lists, editable stock with Save, `.svcr`.
+- **GeoProof deliveries:** drivers start a trip and open each town; Delivered unlocks only when the phone's location is at the shop, then the shop's delivery code and the admin's confirmation complete it. Admins follow every stop under Team → Deliveries, with a map. See `docs/geoproof.md`.
 - **Scan labels (Home):** scan a product or lot label (QR or barcode) with the camera or type its code; ARIA checks it, asks for anything missing, refuses what cannot be right, then updates the stock, plans again and shows the new plan against the old one.
 - **What if:** scenarios compared with the baseline, plus a step sweep.
 - **Results:** dashboard with KPIs, network, charts, scenario comparison and, for samples, the historical replay.

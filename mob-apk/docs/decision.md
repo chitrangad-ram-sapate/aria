@@ -544,3 +544,27 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
     - units that are not a whole number from 1 to 10,00,000.
   - A lot too close to expiry for towns is added, with a note that it will not be sent.
 - **Plan again:** the batch is checked by the engine before anything changes. The plan is redone, and the sheet shows the new plan against the one before: units, shortages, units short, customers served, transport cost and lost sales, plus the shipments that changed. Home then shows the new verified plan.
+
+### D-045 · GeoProof deliveries: arrival check, shop code, admin confirmation · Accepted
+**Context:**
+- Drivers ticked each town "Delivered" by hand, and the rules let a driver rewrite a trip's `stops` array, including its `delivered` flags.
+- The team asked for delivery that unlocks only at the shop, a recipient code, a map, and admin oversight, on the free Spark plan (no server code).
+**Decision:** (details in `docs/geoproof.md`)
+- **Delivery stop records.** Each trip stop gets its own record (`trips/{trip}/stops/{i}`) holding the approved delivery point copied from the data's town coordinates (never guessed from names), the arrival rules, and a state machine:
+  - `assigned → in_transit → arrived → submitted → delivered`;
+  - `rejected`, `failed` and `cancelled` with reasons.
+- **History is enforced.** Every change increments `seq` and must write `events/{seq}` in the same batch, which `firestore.rules` enforces. Duplicates are refused.
+- **Drivers lose broad write access.** They can no longer write the trip's `stops`; the only trip change left to them is `assigned → loaded`.
+- **Arrival:**
+  - The phone requires 2 readings in a row inside 100 m, accurate to 50 m and newer than 15 s (admin-adjustable within limits); `src/geofence.ts`.
+  - The rules repeat the radius, accuracy, reading-count and age checks on the arrival they receive, using a flat distance with a stored metres-per-degree, since rules have no trigonometry.
+- **Recipient code:** 6 digits made on the admin's phone. Only `sha256(salt:code)` is stored, admin-only. The driver's tries are recorded (5 at most), and the rules compare the hash, so the code check runs on Google's servers on Spark.
+- **Admin confirms.** GPS comes from the phone and can be faked, so the driver's step is a claim. The admin confirms or refuses it (with a reason), and every screen says so.
+- **Location:** foreground only, with `@capacitor/geolocation` 6.1.1, after a plain explanation. Tracking runs only while a stop is on its way or at the shop. The latest position is shared with the admin only and deleted when tracking ends. Old readings are shown as old.
+- **Map:** one interface (`src/map.ts`). OpenStreetMap through Leaflet by default (no key); Google Maps when a key is configured (not run: no key in the project); or off. No road route is drawn.
+- **Admin screens:** Team → Deliveries lists stops by state (to confirm, on the way, not started, delivered, problems), by driver and by depot, and warns about drivers without a recent position. Per stop it shows the map, the evidence and the history, with confirm/refuse, code, and delivery point. Each trip can be cancelled or given to another driver.
+- **Not built:** a trusted server (needs the Blaze plan), SMS, background tracking, photo proof, Marathi/Hindi labels. The upgrade path is in `docs/geoproof.md`.
+- **Tests:**
+  - 21 arrival checks;
+  - 121 rule checks (77 new);
+  - the end-to-end test drives a real Chromium GPS: refused 5.6 km away and at 200 m accuracy, unlocked at the shop, wrong code refused, right code submitted, admin sees the live position and confirms.
