@@ -1,5 +1,6 @@
 import './style.css';
 import { watchDrivers, watchFiles, watchProfile, watchReports, watchTeam, watchTrips, logOut, type Profile } from './cloud';
+import { backToTop, changePage, moveIndicator, popIcon, trackDock } from './dock';
 import { engine } from './engine';
 import { isNative, onFileOpened } from './native';
 import { network, notify, onFullRender, restoreSaved, state, subscribe } from './state';
@@ -42,6 +43,7 @@ const tabs = h('nav', { class: 'tabs', 'aria-label': 'Main' });
 const go = h('button', { class: 'go', 'aria-label': 'Plan tonight', onclick: () => { show('plan'); plan.planTonight(); } }, icon('swap'));
 const header = h('header', { class: 'top' }, left, h('div', {}, title, sub), right);
 mount(app, header, main, tabs);
+trackDock(tabs);
 
 function chrome() {
   if (!views[tab]) return;
@@ -54,17 +56,28 @@ function chrome() {
   for (const b of tabs.querySelectorAll<HTMLButtonElement>('button.tab')) b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false');
 }
 
-function show(t: string) {
+/** Order of pages in the dock, for the slide direction (pages outside the dock count as to the right). */
+const position = (t: string) => {
+  const ids = [...tabs.querySelectorAll<HTMLElement>('button.tab, button.go')].map((b) => b.dataset.tab ?? 'plan');
+  const i = ids.indexOf(t);
+  return i < 0 ? ids.length : i;
+};
+
+function show(t: string, force = false) {
+  if (t === tab && !force) return chrome();
+  const from = tab;
   tab = t;
   chrome();
-  views[t].render(main);
-  window.scrollTo(0, 0);
+  changePage(main, from, t, position(t) >= position(from) ? 1 : -1, () => views[t].render(main));
+  moveIndicator(tabs);
+  popIcon(tabs);
 }
 
 onFullRender(() => { chrome(); views[tab]?.render(main); });
 subscribe(() => { chrome(); views[tab]?.update?.(); });
 
-const tabBtn = (t: string) => h('button', { class: 'tab', 'data-tab': t, onclick: () => show(t) }, icon(views[t].icon), h('span', {}, views[t].tab));
+// Tapping the tab already open takes that page back to the top (as on iPhone) instead of doing nothing.
+const tabBtn = (t: string) => h('button', { class: 'tab', 'data-tab': t, onclick: () => (t === tab ? backToTop(main) : show(t)) }, icon(views[t].icon), h('span', {}, views[t].tab));
 const iconBtn = (name: string, labelText: string, t: string) => h('button', { class: 'icon-btn', 'aria-label': labelText, onclick: () => show(t) }, icon(name));
 
 function screen(...kids: any[]) {
@@ -124,7 +137,7 @@ function startDriver(_p: Profile) {
   mount(left);
   mount(right);
   mount(tabs, tabBtn('trips'), tabBtn('files'), tabBtn('report'), tabBtn('account'));
-  show('trips');
+  show('trips', true);
 }
 
 async function startAdmin() {
@@ -139,7 +152,7 @@ async function startAdmin() {
   title.textContent = "Tonight's plan";
   const bar = h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'fill' }));
   const text = h('p', { class: 'muted', 'aria-live': 'polite' }, 'Getting the planner ready...');
-  mount(main, h('section', { class: 'card loading' }, h('h2', {}, 'Getting ready'),
+  mount(main, h('section', { class: 'card loading' }, h('img', { class: 'boot-logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: '' }), h('h2', {}, 'Getting ready'),
     h('p', { class: 'muted small' }, 'ARIA plans on this phone, so it works without internet. The first start takes a few seconds.'), bar, text));
   const t0 = performance.now();
   try {
@@ -151,7 +164,7 @@ async function startAdmin() {
     (window as any).__ariaBootMs = Math.round(performance.now() - t0);
     [state.networks, state.scenarios] = await Promise.all([engine.listNetworks(), engine.listScenarios()]);
     await restoreSaved(); // the last dataset on this phone; otherwise Home asks for a CSV
-    show(tab);
+    show(tab, true);
   } catch {
     mount(main, errorBox('The planner could not start on this phone. Close the app and open it again.'));
   }
