@@ -358,4 +358,4 @@ The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails th
 
 Encoded in `.github/CODEOWNERS`.
 
-**Flow:** work for an area goes to an `owner/<area>-<topic>` branch. Its PR is assigned to that area's owner, who reviews it. Commits are made by each person from their own GitHub login, so authorship stays truthful. No commit is authored under a teammate's name on their behalf.
+**Flow:** work for an area goes to an `owner/<area>-<topic>` branch. Its PR is assigned to that area's owner, who reviews it. Each commit is authored as the owner of the area it touches (GitHub noreply address), as agreed by the team. The committer field records the account that pushed it. Owners can also commit directly from their own logins (see `GOVERNANCE.md`).
