@@ -54,10 +54,30 @@ async function run(fn: string, args: any[]): Promise<unknown> {
     case 'getScenario': return json(bridge.get_scenario(args[0]));
     case 'validate': return json(bridge.validate(JSON.stringify(args[0])));
     case 'plan': return json(bridge.plan(JSON.stringify(args[0])));
-    case 'whatif': return json(bridge.whatif(JSON.stringify(args[0]), JSON.stringify(args[1])));
     case 'explain': return json(bridge.explain(args[0], args[1], args[2]));
     case 'replay': return json(bridge.replay(args[0], args[1] ?? null));
-    case 'assumptions': return json(bridge.assumptions());
+    case 'loadCsv': {
+      // scikit-learn only when the file carries sales history to forecast (lazy: a few MB)
+      let useMl = false;
+      if (/^\s*#\s*(sales|history)\b|^\s*date\s*,/im.test(args[0])) { try { await py.loadPackage(['scikit-learn']); useMl = true; } catch { useMl = false; } }
+      return json(bridge.load_csv(args[0], args[1] == null ? null : JSON.stringify(args[1]), useMl));
+    }
+    case 'sampleCsv': return bridge.sample_csv(args[0]);
+    case 'exportCsv': return bridge.export_csv(JSON.stringify(args[0]));
+    case 'csvFormat': return json(bridge.csv_format());
+    case 'vehicleOptions': return json(bridge.vehicle_options(JSON.stringify(args[0]), args[1], args[2]));
+    case 'compare': return json(bridge.compare(JSON.stringify(args[0]), JSON.stringify(args[1])));
+    case 'loadCsv': {
+      // scikit-learn only when the file carries sales history to forecast (lazy: a few MB)
+      let useMl = false;
+      if (/^\s*#\s*(sales|history)\b|^\s*date\s*,/im.test(args[0])) { try { await py.loadPackage(['scikit-learn']); useMl = true; } catch { useMl = false; } }
+      return json(bridge.load_csv(args[0], args[1] == null ? null : JSON.stringify(args[1]), useMl));
+    }
+    case 'sampleCsv': return bridge.sample_csv(args[0]);
+    case 'exportCsv': return bridge.export_csv(JSON.stringify(args[0]));
+    case 'csvFormat': return json(bridge.csv_format());
+    case 'vehicleOptions': return json(bridge.vehicle_options(JSON.stringify(args[0]), args[1], args[2]));
+    case 'compare': return json(bridge.compare(JSON.stringify(args[0]), JSON.stringify(args[1])));
     case 'importCsv': {
       let useMl = true;
       try { await py.loadPackage(['scikit-learn']); } catch { useMl = false; } // lazy: only when importing

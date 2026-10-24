@@ -1,0 +1,137 @@
+network_id: world_cy_aglantzia_2026034
+name: Aglantziá (Nicosia, CY) - generated, seed 2026034
+country: CY
+godowns:
+- godown_id: G_AGLANTZIA
+  name: Aglantziá depot
+  lat: 35.1542
+  lon: 33.3964
+- godown_id: G_BAQA_EL_GHARBIYA
+  name: Bāqa el Gharbīya depot
+  lat: 32.4206
+  lon: 35.0427
+- godown_id: G_KAFR_ZAYTA
+  name: Kafr Zaytā depot
+  lat: 35.3743
+  lon: 36.6033
+- godown_id: G_SAHNAYA
+  name: Şaḩnāyā depot
+  lat: 33.4253
+  lon: 36.2255
+towns:
+- town_id: T_AGLANTZIA
+  name: Aglantziá
+  population_2011: 21543
+  lat: 35.1542
+  lon: 33.3964
+  country: CY
+  admin1: Nicosia
+  tz: Asia/Nicosia
+- town_id: T_BAQA_EL_GHARBIYA
+  name: Bāqa el Gharbīya
+  population_2011: 29950
+  lat: 32.4206
+  lon: 35.0427
+  country: IL
+  admin1: Haifa
+  tz: Asia/Jerusalem
+- town_id: T_KAFR_ZAYTA
+  name: Kafr Zaytā
+  population_2011: 21845
+  lat: 35.3743
+  lon: 36.6033
+  country: SY
+  admin1: Hama
+  tz: Asia/Damascus
+- town_id: T_SAHNAYA
+  name: Şaḩnāyā
+  population_2011: 30519
+  lat: 33.4253
+  lon: 36.2255
+  country: SY
+  admin1: Rif-dimashq
+  tz: Asia/Damascus
+routes:
+- godown_id: G_AGLANTZIA
+  town_id: T_AGLANTZIA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_AGLANTZIA
+  town_id: T_BAQA_EL_GHARBIYA
+  road_km: 424.9
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_AGLANTZIA
+  town_id: T_KAFR_ZAYTA
+  road_km: 365.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_AGLANTZIA
+  town_id: T_SAHNAYA
+  road_km: 404.1
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_BAQA_EL_GHARBIYA
+  town_id: T_AGLANTZIA
+  road_km: 424.9
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_BAQA_EL_GHARBIYA
+  town_id: T_BAQA_EL_GHARBIYA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_BAQA_EL_GHARBIYA
+  town_id: T_KAFR_ZAYTA
+  road_km: 448.3
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_BAQA_EL_GHARBIYA
+  town_id: T_SAHNAYA
+  road_km: 196.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KAFR_ZAYTA
+  town_id: T_AGLANTZIA
+  road_km: 365.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KAFR_ZAYTA
+  town_id: T_BAQA_EL_GHARBIYA
+  road_km: 448.3
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KAFR_ZAYTA
+  town_id: T_KAFR_ZAYTA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KAFR_ZAYTA
+  town_id: T_SAHNAYA
+  road_km: 274.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAHNAYA
+  town_id: T_AGLANTZIA
+  road_km: 404.1
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_SAHNAYA
+  town_id: T_BAQA_EL_GHARBIYA
+  road_km: 196.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAHNAYA
+  town_id: T_KAFR_ZAYTA
+  road_km: 274.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAHNAYA
+  town_id: T_SAHNAYA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

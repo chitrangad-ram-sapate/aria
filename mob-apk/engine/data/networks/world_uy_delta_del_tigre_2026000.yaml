@@ -1,0 +1,137 @@
+network_id: world_uy_delta_del_tigre_2026000
+name: Delta del Tigre (San José Department, UY) - generated, seed 2026000
+country: UY
+godowns:
+- godown_id: G_DELTA_DEL_TIGRE
+  name: Delta del Tigre depot
+  lat: -34.7649
+  lon: -56.3645
+- godown_id: G_LAS_PIEDRAS
+  name: Las Piedras depot
+  lat: -34.7302
+  lon: -56.2192
+- godown_id: G_MONTEVIDEO
+  name: Montevideo depot
+  lat: -34.9033
+  lon: -56.1882
+- godown_id: G_SAN_CARLOS
+  name: San Carlos depot
+  lat: -34.7912
+  lon: -54.9182
+towns:
+- town_id: T_DELTA_DEL_TIGRE
+  name: Delta del Tigre
+  population_2011: 17973
+  lat: -34.7649
+  lon: -56.3645
+  country: UY
+  admin1: San José Department
+  tz: America/Montevideo
+- town_id: T_LAS_PIEDRAS
+  name: Las Piedras
+  population_2011: 69682
+  lat: -34.7302
+  lon: -56.2192
+  country: UY
+  admin1: Canelones
+  tz: America/Montevideo
+- town_id: T_MONTEVIDEO
+  name: Montevideo
+  population_2011: 1270737
+  lat: -34.9033
+  lon: -56.1882
+  country: UY
+  admin1: Montevideo Department
+  tz: America/Montevideo
+- town_id: T_SAN_CARLOS
+  name: San Carlos
+  population_2011: 27471
+  lat: -34.7912
+  lon: -54.9182
+  country: UY
+  admin1: Maldonado
+  tz: America/Montevideo
+routes:
+- godown_id: G_DELTA_DEL_TIGRE
+  town_id: T_DELTA_DEL_TIGRE
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DELTA_DEL_TIGRE
+  town_id: T_LAS_PIEDRAS
+  road_km: 17.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DELTA_DEL_TIGRE
+  town_id: T_MONTEVIDEO
+  road_km: 27.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DELTA_DEL_TIGRE
+  town_id: T_SAN_CARLOS
+  road_km: 165.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_LAS_PIEDRAS
+  town_id: T_DELTA_DEL_TIGRE
+  road_km: 17.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_LAS_PIEDRAS
+  town_id: T_LAS_PIEDRAS
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_LAS_PIEDRAS
+  town_id: T_MONTEVIDEO
+  road_km: 24.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_LAS_PIEDRAS
+  town_id: T_SAN_CARLOS
+  road_km: 148.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MONTEVIDEO
+  town_id: T_DELTA_DEL_TIGRE
+  road_km: 27.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MONTEVIDEO
+  town_id: T_LAS_PIEDRAS
+  road_km: 24.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MONTEVIDEO
+  town_id: T_MONTEVIDEO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MONTEVIDEO
+  town_id: T_SAN_CARLOS
+  road_km: 145.7
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAN_CARLOS
+  town_id: T_DELTA_DEL_TIGRE
+  road_km: 165.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAN_CARLOS
+  town_id: T_LAS_PIEDRAS
+  road_km: 148.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAN_CARLOS
+  town_id: T_MONTEVIDEO
+  road_km: 145.7
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SAN_CARLOS
+  town_id: T_SAN_CARLOS
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

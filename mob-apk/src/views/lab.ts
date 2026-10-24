@@ -1,150 +1,308 @@
-// Disruption Lab: pick a shock (default: ROUTE_RESTRICTION on the network's demo leg), re-plan,
-// show before/after KPIs, the diff and τ* before/after.
+// What-if analysis: build scenarios from model inputs (demand, depot capacity, freight rates, lost stock, margin,
+// route closures and truck restrictions), re-plan each on the device and compare with the baseline (the data as
+// loaded). A step-by-step sweep varies one input over a range the user picks. All numbers come from engine.compare.
 import { engine } from '../engine';
-import { currentHash, network, nextRid, state } from '../state';
-import { Json, errorBox, fmt, h, label, mount, num, pagedTable, select, table } from '../ui';
-import { metricsTable, resultHeader } from './plan';
+import { compact, hbars, kpi as kpiCard, line, seriesColor } from '../charts';
+import { KPIS, chip, kpi } from '../kpis';
+import { Variant, currentHash, nextRid, state } from '../state';
+import { Json, badge, errorBox, h, icon, mount, num, rupees, select, table } from '../ui';
+import { truck } from './network';
+import { godownName, townName } from './plan';
 
-const SHOCKS: [string, string][] = [['ROUTE_RESTRICTION', 'Heavy trucks banned on a route'], ['ROUTE_CLOSURE', 'A route is closed'], ['INVENTORY_LOSS', 'Stock lost at a depot'], ['FESTIVAL_SPIKE', 'Festival demand spike']];
-let shock: Json = null;
-let shockFor = '';
 let root: HTMLElement;
-let out: HTMLElement;
+let timer = 0;
+let pending = false;
 
-function defaultLeg(sc: Json): [string, string] {
-  const demo = network().demo_route ?? {};
-  const routes = sc.routes ?? [];
-  const pool = routes.filter((r: Json) => r.town_id === demo.town_id && (demo.godown_id == null || r.godown_id === demo.godown_id));
-  const pick = [...(pool.length ? pool : routes)].sort((a: Json, b: Json) => (b.road_km ?? 0) - (a.road_km ?? 0) || a.godown_id.localeCompare(b.godown_id))[0];
-  return pick ? [pick.godown_id, pick.town_id] : [sc.godowns[0]?.godown_id, sc.towns[0]?.town_id];
+const lab = state.lab;
+const sc = () => state.scenario;
+
+function longestRoute(): [string, string] | null {
+  const r = [...(sc()?.routes ?? [])].filter((x: Json) => x.active).sort((a: Json, b: Json) => b.road_km - a.road_km)[0];
+  return r ? [r.godown_id, r.town_id] : null;
 }
 
-function resetShock() {
-  const [g, t] = defaultLeg(state.scenario);
-  shock = { type: 'ROUTE_RESTRICTION', godown_id: g, town_id: t, product_id: '*', pct: 30, max_vehicle: '6t' };
-  shockFor = state.scenarioId;
+const PRESETS: { name: string; params: () => Json }[] = [
+  { name: 'Demand up 20%', params: () => ({ demand_pct: 20 }) },
+  { name: 'Demand down 20%', params: () => ({ demand_pct: -20 }) },
+  { name: 'Depots load 30% less', params: () => ({ capacity_pct: 70 }) },
+  { name: 'Freight 25% dearer', params: () => ({ freight_pct: 25 }) },
+  { name: 'Lose 20% of stock', params: () => ({ stock_loss_pct: 20 }) },
+  { name: 'Longest route closed', params: () => ({ closures: longestRoute() ? [longestRoute()] : [] }) },
+  { name: 'Blank scenario', params: () => ({}) },
+];
+
+const variantKey = () => JSON.stringify([currentHash(), lab.variants.map((v) => [v.id, v.params])]);
+
+function addVariant(name: string, params: Json) {
+  const id = `v${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const taken = new Set(lab.variants.map((v) => v.name));
+  let n = name, k = 2;
+  while (taken.has(n)) n = `${name} (${k++})`;
+  lab.variants.push({ id, name: n, params });
+  lab.selected = id;
+  if (lab.variants.length > 8) lab.variants.shift(); // 8 scenarios + baseline keep every chart readable
+  changed();
 }
 
-/** The shock as sent to the engine: only the fields its type uses. */
-function payload(): Json {
-  const s: Json = { type: shock.type };
-  if (shock.type !== 'FESTIVAL_SPIKE') s.godown_id = shock.godown_id;
-  if (shock.type !== 'INVENTORY_LOSS') s.town_id = shock.town_id;
-  if (shock.type === 'ROUTE_RESTRICTION') s.max_vehicle = shock.max_vehicle;
-  if (shock.type === 'INVENTORY_LOSS' || shock.type === 'FESTIVAL_SPIKE') { s.product_id = shock.product_id; s.pct = shock.pct; }
-  return s;
+function changed() {
+  render(root);
+  clearTimeout(timer);
+  timer = window.setTimeout(compare, 700);
 }
-
-const key = () => JSON.stringify([currentHash(), payload()]);
 
 export function render(r: HTMLElement) {
   root = r;
-  const sc = state.scenario;
-  if (!sc) return mount(root, h('p', { class: 'muted' }, 'Loading...'));
-  if (!shock || shockFor !== state.scenarioId) resetShock();
-  out = h('div', {});
-  const ids = (xs: Json[], k: string) => xs.map((x): [string, string] => [x[k], x[k]]);
-  const set = (k: string) => (v: string) => { shock[k] = v; render(root); };
-  const t = shock.type;
+  if (!sc()) return mount(root, h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'No data yet'), h('p', { class: 'small' }, 'Load your CSV on Home first. Every scenario here starts from that data.')));
+  const v = lab.variants.find((x) => x.id === lab.selected) ?? lab.variants[0];
   mount(root,
     h('section', { class: 'card' },
-      h('p', { class: 'eyebrow' }, 'Something went wrong on the road or in a depot?'),
-      h('p', { class: 'small muted' }, 'Pick what happened. ARIA re-plans on this phone and shows exactly what changes.'),
-      h('div', { class: 'grid2' },
-        h('label', {}, 'What happened', select(SHOCKS, t, set('type'), 'What happened')),
-        t !== 'FESTIVAL_SPIKE' && h('label', {}, 'Depot', select(sc.godowns.map((g: Json): [string, string] => [g.godown_id, g.name || g.godown_id]), shock.godown_id, set('godown_id'), 'Depot')),
-        t !== 'INVENTORY_LOSS' && h('label', {}, 'Town', select(sc.towns.map((x: Json): [string, string] => [x.town_id, x.name || x.town_id]), shock.town_id, set('town_id'), 'Town')),
-        t === 'ROUTE_RESTRICTION' && h('label', {}, 'Largest truck allowed', select([['6t', '6 tonne']], shock.max_vehicle, set('max_vehicle'), 'Largest truck allowed')),
-        (t === 'INVENTORY_LOSS' || t === 'FESTIVAL_SPIKE') && h('label', {}, 'Product', select([['*', 'All products'], ...ids(sc.products, 'product_id')], shock.product_id, set('product_id'), 'Product')),
-        (t === 'INVENTORY_LOSS' || t === 'FESTIVAL_SPIKE') && h('label', {}, `Percent: ${shock.pct}%`,
-          h('input', { type: 'range', min: 0, max: 100, value: shock.pct, 'aria-label': 'Percent', onchange: (e: Event) => { shock.pct = Number((e.target as HTMLInputElement).value); render(root); } }))),
-      h('button', { class: 'btn primary block', disabled: state.whatifBusy || !state.report?.valid || state.validating, onclick: run }, state.whatifBusy ? 'Re-planning on this phone...' : 'See the new plan'),
-      state.whatifError && errorBox(state.whatifError)),
-    out);
-  drawResult();
+      h('p', { class: 'eyebrow' }, 'Ask "what if...?"'),
+      h('p', { class: 'small' }, 'The baseline is your data as loaded. Each scenario changes a few inputs. ARIA re-plans every scenario on this phone and shows what changes, in units, rupees and %.'),
+      h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Scenarios' },
+        h('span', { class: 'chip base' }, 'Baseline'),
+        lab.variants.map((x, i) => h('button', { class: `chip${x === v ? ' on' : ''}`, role: 'tab', 'aria-selected': String(x === v), style: `--c:${seriesColor(i + 1)}`,
+          onclick: () => { lab.selected = x.id; render(root); } }, x.name))),
+      h('details', { class: 'add', open: lab.variants.length === 0 }, h('summary', { class: 'btn block' }, '+ Add a scenario'),
+        h('div', { class: 'preset-grid' }, PRESETS.map((p) => h('button', { class: 'btn small', onclick: () => addVariant(p.name, p.params()) }, p.name))))),
+    v && editor(v),
+    h('section', { class: 'card', 'aria-live': 'polite' },
+      h('div', { class: 'row between' }, h('h2', {}, 'Compare with the baseline'),
+        lab.busy ? badge('Re-planning...', 'warn') : lab.result && lab.result.key !== variantKey() ? badge('Out of date', 'bad') : lab.result ? badge('Up to date', 'ok') : null),
+      h('button', { class: 'btn primary block', disabled: lab.busy || !lab.variants.length || !state.report?.valid || state.validating, onclick: compare },
+        lab.busy ? 'Re-planning on this phone...' : lab.variants.length ? `Compare ${lab.variants.length} scenario${lab.variants.length > 1 ? 's' : ''}` : 'Add a scenario to compare'),
+      !state.report?.valid && !state.validating && h('p', { class: 'note' }, 'Your data has problems (see Home). Fix them to run scenarios.'),
+      lab.error && errorBox(lab.error)),
+    results(),
+    sweepCard());
 }
 
 export function update() {
   if (root) render(root);
 }
 
-async function run() {
+// ---------- scenario editor ----------
+function slider(labelText: string, value: number, min: number, max: number, step: number, unit: string, set: (v: number) => void, hint?: string) {
+  const out = h('strong', {}, `${value > 0 && unit === '%' && min < 0 ? '+' : ''}${value}${unit}`);
+  const rng = h('input', { type: 'range', min, max, step, value, 'aria-label': labelText,
+    oninput: (e: Event) => { out.textContent = `${(e.target as HTMLInputElement).value}${unit}`; },
+    onchange: (e: Event) => set(Number((e.target as HTMLInputElement).value)) });
+  const box = h('input', { type: 'number', min, max, step, value, class: 'num', 'aria-label': `${labelText} value`,
+    onchange: (e: Event) => { const n = Number((e.target as HTMLInputElement).value); if (Number.isFinite(n)) set(Math.min(max, Math.max(min, n))); } });
+  return h('div', { class: 'ctl' }, h('div', { class: 'row between' }, h('span', {}, labelText), out), h('div', { class: 'row' }, rng, box), hint && h('p', { class: 'note' }, hint));
+}
+
+function editor(v: Variant) {
+  const s = sc(), p = v.params;
+  const set = (k: string) => (val: any) => { p[k] = val; changed(); };
+  const products: [string, string][] = [['*', 'All products'], ...s.products.map((x: Json): [string, string] => [x.product_id, x.product_id])];
+  const towns: [string, string][] = [['*', 'All towns'], ...s.towns.map((x: Json): [string, string] => [x.town_id, x.name || x.town_id])];
+  const depots: [string, string][] = [['*', 'All depots'], ...s.godowns.map((x: Json): [string, string] => [x.godown_id, x.name || x.godown_id])];
+  const anyCap = s.godowns.some((g: Json) => g.dispatch_capacity_units != null);
+  const margin = s.policy?.margin ?? 0.035;
+  return h('section', { class: 'card editor' },
+    h('label', {}, 'Scenario name',
+      h('input', { type: 'text', value: v.name, class: 'name', 'aria-label': 'Scenario name', onchange: (e: Event) => { v.name = (e.target as HTMLInputElement).value.trim() || v.name; render(root); } })),
+    h('div', { class: 'row editor-actions' },
+        h('button', { class: 'btn small', onclick: () => addVariant(`${v.name} copy`, structuredClone(p)) }, 'Copy'),
+        h('button', { class: 'btn small', onclick: () => { v.params = {}; changed(); } }, 'Reset'),
+        h('button', { class: 'btn small danger', onclick: () => { lab.variants = lab.variants.filter((x) => x !== v); lab.selected = lab.variants[0]?.id ?? ''; changed(); } }, 'Delete')),
+    h('h3', {}, 'Demand'),
+    slider('Change in demand', p.demand_pct ?? 0, -90, 200, 5, '%', set('demand_pct')),
+    h('div', { class: 'grid2' }, select(products, p.demand_product ?? '*', set('demand_product'), 'Demand change applies to product'),
+      select(towns, p.demand_town ?? '*', set('demand_town'), 'Demand change applies to town')),
+    h('h3', {}, 'Depot loading capacity'),
+    slider('Capacity', p.capacity_pct ?? 100, 0, 200, 5, '%', set('capacity_pct'),
+      anyCap ? 'Percent of each depot\'s capacity in your data (depots with no limit: of what they ship in the baseline).' : 'Your depots have no loading limit, so this is a percent of what each one ships in the baseline.'),
+    select(depots, p.capacity_depot ?? '*', set('capacity_depot'), 'Capacity change applies to depot'),
+    h('h3', {}, 'Costs and stock'),
+    slider('Change in freight rates', p.freight_pct ?? 0, -50, 200, 5, '%', set('freight_pct'), `Now: ${Object.entries(s.policy?.freight_paise_per_tkm ?? {}).map(([k, r]) => `${truck(k)} ₹${(Number(r) / 100).toFixed(2)}/t-km`).join(' · ')}`),
+    slider('Stock lost (damage, theft, recall)', p.stock_loss_pct ?? 0, 0, 100, 5, '%', set('stock_loss_pct')),
+    h('div', { class: 'grid2' }, select(depots, p.stock_depot ?? '*', set('stock_depot'), 'Stock loss at depot'), select(products, p.stock_product ?? '*', set('stock_product'), 'Stock loss of product')),
+    slider('Trade margin', Math.round((p.margin ?? margin) * 1000) / 10, 0, 50, 0.5, '%', (x) => { p.margin = x / 100; changed(); }, `Your data: ${(margin * 100).toFixed(1)}%. Higher margin makes each lost sale cost more.`),
+    h('h3', {}, 'Routes'),
+    routeChanges(v));
+}
+
+function routeChanges(v: Variant) {
+  const s = sc(), p = v.params;
+  const list: Json[] = [...(p.closures ?? []).map((c: string[]) => ({ kind: 'close', g: c[0], t: c[1] })), ...(p.restrictions ?? []).map((r: string[]) => ({ kind: 'restrict', g: r[0], t: r[1], v: r[2] }))];
+  const box = h('div', {});
+  let g = s.godowns[0]?.godown_id ?? '', t = '', kind = 'close', veh = '';
+  let options: string[] = [];
+  const townsFor = (gid: string): [string, string][] => s.routes.filter((r: Json) => r.godown_id === gid).map((r: Json): [string, string] => [r.town_id, townName(r.town_id)]);
+  const draw = async () => {
+    const ts = townsFor(g);
+    if (!ts.some(([id]: [string, string]) => id === t)) t = ts[0]?.[0] ?? '';
+    options = t ? await engine.vehicleOptions(s, g, t) : [];
+    if (!options.includes(veh)) veh = options[0] ?? '';
+    const route = s.routes.find((r: Json) => r.godown_id === g && r.town_id === t);
+    mount(box,
+      h('div', { class: 'grid2' },
+        select(s.godowns.map((x: Json): [string, string] => [x.godown_id, x.name || x.godown_id]), g, (x) => { g = x; draw(); }, 'Route from depot'),
+        select(ts, t, (x) => { t = x; draw(); }, 'Route to town'),
+        select([['close', 'Close this route'], ['restrict', 'Allow only smaller trucks']], kind, (x) => { kind = x; draw(); }, 'Route change'),
+        kind === 'restrict' && (options.length ? select(options.map((o): [string, string] => [o, truck(o)]), veh, (x) => { veh = x; }, 'Largest truck allowed') : h('span', {}))),
+      kind === 'restrict' && !options.length && h('p', { class: 'note' }, `This route already uses ${route ? truck(route.vehicle_class).toLowerCase() : 'the smallest truck'}, the dearest class per tonne-km, so a restriction cannot change it. Pick another route or close it instead.`),
+      kind === 'restrict' && options.length > 0 && h('p', { class: 'note' }, `Now: ${truck(route.vehicle_class)}. Only classes that cost more per tonne-km are offered: a cheaper class would change nothing.`),
+      h('button', { class: 'btn small block', disabled: !t || (kind === 'restrict' && !veh), onclick: () => {
+        if (kind === 'close') p.closures = [...(p.closures ?? []).filter((c: string[]) => !(c[0] === g && c[1] === t)), [g, t]];
+        else p.restrictions = [...(p.restrictions ?? []).filter((c: string[]) => !(c[0] === g && c[1] === t)), [g, t, veh]];
+        changed();
+      } }, 'Add route change'));
+  };
+  draw();
+  return [
+    list.length ? h('ul', { class: 'rows' }, list.map((c) => h('li', {},
+      h('div', { class: 'row-main' }, h('strong', {}, `${godownName(c.g)} → ${townName(c.t)}`), h('span', {}, c.kind === 'close' ? 'Route closed' : `Only ${truck(c.v).toLowerCase()}`)),
+      h('button', { class: 'btn small ghost', 'aria-label': 'Remove route change', onclick: () => {
+        if (c.kind === 'close') p.closures = p.closures.filter((x: string[]) => !(x[0] === c.g && x[1] === c.t));
+        else p.restrictions = p.restrictions.filter((x: string[]) => !(x[0] === c.g && x[1] === c.t));
+        changed();
+      } }, 'Remove')))) : h('p', { class: 'note' }, 'No route changes in this scenario.'),
+    box];
+}
+
+// ---------- compare ----------
+async function compare() {
+  clearTimeout(timer);
+  if (!sc() || !lab.variants.length || !state.report?.valid || state.validating) return;
+  if (lab.busy) { pending = true; return; }
   const my = nextRid();
-  state.whatifRid = my;
-  state.whatifBusy = true;
-  state.whatifError = '';
-  const k = key();
+  const key = variantKey();
+  lab.busy = true;
+  lab.error = '';
   render(root);
   try {
-    const t0 = performance.now();
-    const r = await engine.whatif(state.scenario, [payload()]);
-    if (my !== state.whatifRid) return;
-    if (r.valid === false) state.whatifError = (r.errors ?? []).map((e: Json) => `${e.code} ${e.path}: ${e.message}`).join('\n');
-    else state.whatif = { rid: my, resp: { ...r, elapsed_ms: Math.round(performance.now() - t0) }, key: k };
+    const r = await engine.compare(sc(), lab.variants.map((v) => ({ id: v.id, name: v.name, params: v.params })));
+    if (r.valid === false) lab.error = (r.errors ?? []).map((e: Json) => e.message).join('\n');
+    else lab.result = { rid: my, resp: r, key };
   } catch (e: any) {
-    if (my === state.whatifRid) state.whatifError = `What-if failed: ${e.message}`;
+    lab.error = `Comparison failed: ${e.message}`;
   } finally {
-    if (my === state.whatifRid) state.whatifBusy = false;
+    lab.busy = false;
+    if (pending) { pending = false; window.setTimeout(compare, 0); }
     render(root);
   }
 }
 
-function drawResult() {
-  const w = state.whatif;
-  if (!w) return;
-  const resp = w.resp;
-  const stale = w.key !== key();
-  const before = resp.before ?? {}, after = resp.after ?? {};
-  const shown = payload();
-  const tc: Json[] = resp.tau_changes ?? [];
-  const leg = tc.filter((r) => r.godown_id === shown.godown_id && r.town_id === shown.town_id);
-  const rows = (leg.length ? leg : tc).slice().sort((a, b) => Math.abs((b.before ?? 0) - (b.after ?? 0)) - Math.abs((a.before ?? 0) - (a.after ?? 0)));
-  mount(out, h('section', { class: `card result${stale ? ' stale' : ''}` },
-    h('h2', {}, 'What changes'),
-    resultHeader(resp, w.rid, stale, [`re-plan ${num(resp.elapsed_ms)} ms`]),
-    metricsTable([['ARIA before', before.aria], ['ARIA after', after.aria], ['(a) before', before.baseline_a], ['(a) after', after.baseline_a]]),
-    ['aria', 'baseline_a'].map((n) => diffBlock(n === 'aria' ? 'ARIA' : 'Usual method (a)', resp.diff?.[n])),
-    h('h3', {}, 'Service level on the affected route (τ*)'),
-    rows.length ? [tauChart(rows.slice(0, 30)), h('p', { class: 'muted small' }, 'Between the two dots, units stop being worth sending on this route: the freight now costs more than the sale they protect.'),
-      pagedTable(rows, [['godown_id', 'Godown'], ['town_id', 'Town'], ['product_id', 'Product'], ['before', 'τ* before'], ['after', 'τ* after'],
-        ['freight_before_paise', 'Freight/unit before'], ['freight_after_paise', 'Freight/unit after']], undefined, 20)]
-      : h('p', { class: 'muted' }, 'No τ* changes.'),
-  ));
-}
-
-function diffBlock(title: string, d: Json) {
-  if (!d) return h('div', {}, h('h3', {}, title), h('p', { class: 'muted' }, 'No diff (one side has no plan).'));
-  const scalars = Object.entries(d).filter(([, v]) => v == null || typeof v !== 'object');
-  return h('div', {}, h('h3', {}, title),
-    h('div', { class: 'stats' }, scalars.map(([k, v]) => h('div', { class: 'stat' }, h('span', { class: 'muted small' }, label(k)), h('strong', {}, fmt(k, v))))),
-    d.changed_rows?.length > 0 && h('details', {}, h('summary', {}, `Changed rows (${num(d.changed_rows.length)})`),
-      pagedTable(d.changed_rows, [['godown_id', 'Godown'], ['town_id', 'Town'], ['product_id', 'Product'], ['lot_id', 'Lot'], ['before_units', 'Before'], ['after_units', 'After']], undefined, 20)),
-    d.new_reason_codes?.length > 0 && h('details', {}, h('summary', {}, `New reason codes (${num(d.new_reason_codes.length)})`),
-      table(d.new_reason_codes, [['town_id', 'Town'], ['product_id', 'Product'], ['reason', 'Reason'], ['sub_reason', 'Detail', (v) => v ?? '']])));
-}
-
-function tauChart(rows: Json[]) {
-  const W = 340, rowH = 22, left = 110, right = 12, top = 22;
-  const x = (v: number) => left + Math.max(0, Math.min(1, v)) * (W - left - right);
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const el = (tag: string, a: Record<string, any>, text?: string) => {
-    const n = document.createElementNS(svgNS, tag);
-    for (const [k, v] of Object.entries(a)) n.setAttribute(k, String(v));
-    if (text) n.textContent = text;
-    return n;
+export function comparisonCharts(resp: Json) {
+  const rows: Json[] = [resp.baseline, ...resp.variants.filter((v: Json) => !v.error)];
+  const cats = rows.map((r) => r.name);
+  const colour = (i: number) => (i === 0 ? seriesColor(0) : seriesColor(1 + Math.max(0, lab.variants.findIndex((v) => v.id === rows[i].id))));
+  const metric = (key: string, title: string, scale = 1) => {
+    const k = kpi(key);
+    return hbars(title, cats, [{ name: k.label, values: rows.map((r) => (r.kpis[key] == null ? null : r.kpis[key] * scale)) }],
+      (v) => k.fmt(v / scale), `${k.label} (${k.unit})`, k.lowerIsBetter ? 'Lower is better' : 'Higher is better');
   };
-  const H = top + rows.length * rowH + 8;
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, class: 'tau', role: 'img', 'aria-label': 'τ* before and after per product on the shocked leg' });
-  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
-    svg.append(el('line', { x1: x(t), x2: x(t), y1: top - 6, y2: H - 6, class: 'grid' }), el('text', { x: x(t), y: 12, 'text-anchor': 'middle', class: 'axis' }, String(t)));
-  }
-  rows.forEach((r, i) => {
-    const y = top + i * rowH + rowH / 2;
-    svg.append(el('text', { x: left - 6, y: y + 4, 'text-anchor': 'end', class: 'axis' }, r.product_id));
-    if (r.before != null && r.after != null) svg.append(el('line', { x1: x(r.before), x2: x(r.after), y1: y, y2: y, class: 'link' }));
-    if (r.before != null) svg.append(el('circle', { cx: x(r.before), cy: y, r: 5, class: 'before' }, ''));
-    if (r.after != null) svg.append(el('circle', { cx: x(r.after), cy: y, r: 5, class: 'after' }, ''));
-  });
-  return h('figure', { class: 'chart' }, svg as unknown as Node,
-    h('figcaption', { class: 'row small' }, h('span', { class: 'dot before' }), 'before', h('span', { class: 'dot after' }), 'after'));
+  const changeKeys = KPIS.filter((k) => rows.slice(1).some((r) => r.diff?.[k.key]?.pct != null));
+  return [
+    h('div', { class: 'viz-grid' },
+      metric('expected_fill_rate', 'Demand met', 100),
+      metric('expected_lost_margin_paise', 'Lost sales value'),
+      metric('freight_paise', 'Freight cost'),
+      metric('units_shipped', 'Units shipped')),
+    rows.length > 1 && changeKeys.length > 0 && hbars('Change from the baseline (%)', changeKeys.map((k) => k.label),
+      rows.slice(1).map((r, i) => ({ name: r.name, values: changeKeys.map((k) => r.diff?.[k.key]?.pct ?? null), color: colour(i + 1) })),
+      (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`, '% change', 'Bars right of 0 are increases. Whether that is good depends on the measure (see table).'),
+    hbars('Units loaded per depot', resp.baseline.depots.map((d: Json) => d.name),
+      rows.map((r, i) => ({ name: r.name, values: r.depots.map((d: Json) => d.shipped), color: colour(i) })), num, 'units'),
+  ];
 }
+
+function results() {
+  const res = lab.result;
+  if (!res) return lab.busy ? h('section', { class: 'card' }, h('p', { class: 'muted' }, 'Planning the baseline and every scenario...')) : null;
+  const resp = res.resp, base = resp.baseline;
+  const ok: Json[] = resp.variants.filter((v: Json) => !v.error);
+  const failed: Json[] = resp.variants.filter((v: Json) => v.error);
+  const best = (key: string, max: boolean) => {
+    const all = [base, ...ok].filter((r) => r.kpis[key] != null);
+    if (all.length < 2) return null;
+    const pick = all.reduce((a, b) => ((max ? b.kpis[key] > a.kpis[key] : b.kpis[key] < a.kpis[key]) ? b : a));
+    return h('li', {}, h('span', {}, `${kpi(key).label}: `), h('strong', {}, pick.name), h('span', { class: 'muted' }, ` (${kpi(key).fmt(pick.kpis[key])})`));
+  };
+  const stale = res.key !== variantKey();
+  return h('div', { class: stale ? 'stale' : '' },
+    failed.map((f) => errorBox(`${f.name}: ${f.error}`)),
+    h('section', { class: 'card' }, h('h2', {}, 'Which option does best?'),
+      h('ul', { class: 'best' }, best('expected_fill_rate', true), best('expected_lost_margin_paise', false), best('freight_paise', false), best('at_risk_units_left', false)),
+      h('p', { class: 'note' }, 'Scenario projections: plans under changed inputs, not actual results.')),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Each scenario against the baseline')),
+    ok.map((v) => h('section', { class: 'card' },
+      h('div', { class: 'row between' }, h('strong', {}, v.name), v.verified ? badge('Verified plan', 'ok') : badge('Not verified', 'bad')),
+      v.recommended !== 'aria' && h('p', { class: 'note' }, `ARIA had no verified plan here (${v.aria_withheld}); the usual method is shown.`),
+      h('div', { class: 'kpi-grid' }, KPIS.filter((k) => v.kpis[k.key] != null).slice(0, 6).map((k) => kpiCard(k.label, k.fmt(v.kpis[k.key]), `baseline ${k.fmt(base.kpis[k.key])}`, chip(v.diff[k.key], k)))))),
+    h('section', { class: 'card' }, h('h2', {}, 'Charts'), comparisonCharts(resp)),
+    h('details', { class: 'card' }, h('summary', {}, 'Full comparison table'),
+      table(KPIS.filter((k) => base.kpis[k.key] != null).map((k) => Object.fromEntries([['m', k.label], ['b', k.fmt(base.kpis[k.key])],
+        ...ok.map((v, i) => [`v${i}`, v.kpis[k.key] == null ? '-' : `${k.fmt(v.kpis[k.key])} (${v.diff[k.key]?.pct == null ? k.diff(v.diff[k.key]?.abs ?? 0) : `${v.diff[k.key].pct > 0 ? '+' : ''}${v.diff[k.key].pct.toFixed(1)}%`})`])])),
+        [['m', 'Measure'], ['b', 'Baseline'], ...ok.map((v, i): [string, string] => [`v${i}`, v.name])])));
+}
+
+// ---------- step-by-step sweep ----------
+const SWEEP: Record<string, { label: string; from: number; to: number; unit: string }> = {
+  demand_pct: { label: 'Change in demand', from: -20, to: 40, unit: '%' },
+  capacity_pct: { label: 'Depot capacity', from: 50, to: 120, unit: '% of baseline' },
+  freight_pct: { label: 'Change in freight rates', from: 0, to: 100, unit: '%' },
+  stock_loss_pct: { label: 'Stock lost', from: 0, to: 50, unit: '%' },
+};
+let sweepParam = 'demand_pct';
+let sweepFrom = SWEEP.demand_pct.from, sweepTo = SWEEP.demand_pct.to, sweepSteps = 7;
+
+function sweepCard() {
+  const cfg = SWEEP[sweepParam];
+  const sw = lab.sweep;
+  const nums = (v: number, set: (n: number) => void, l: string, min = -100, max = 300) => h('label', { class: 'mini' }, l,
+    h('input', { type: 'number', value: v, min, max, 'aria-label': l, onchange: (e: Event) => { const n = Number((e.target as HTMLInputElement).value); if (Number.isFinite(n)) set(n); } }));
+  return h('section', { class: 'card' },
+    h('h2', {}, 'Step by step: one change over a range'),
+    h('p', { class: 'small muted' }, 'Pick one input, a range and how many steps. ARIA plans every step so you can see where things start to break.'),
+    select(Object.entries(SWEEP).map(([k, c]): [string, string] => [k, c.label]), sweepParam, (k) => { sweepParam = k; sweepFrom = SWEEP[k].from; sweepTo = SWEEP[k].to; render(root); }, 'Input to vary'),
+    h('div', { class: 'grid3' },
+      nums(sweepFrom, (n) => { sweepFrom = n; }, `From (${cfg.unit})`),
+      nums(sweepTo, (n) => { sweepTo = n; }, `To (${cfg.unit})`),
+      nums(sweepSteps, (n) => { sweepSteps = Math.round(n); }, 'Steps (2-12)', 2, 12)),
+    h('button', { class: 'btn block', disabled: lab.sweepBusy || !state.report?.valid, onclick: runSweep }, icon('chart'), lab.sweepBusy ? 'Planning each step...' : 'Run steps'),
+    sw && sw.key === JSON.stringify([currentHash(), sw.param, sw.values]) ? sweepCharts(sw) : sw ? h('p', { class: 'note' }, 'Inputs changed since the last run. Run the steps again.') : null);
+}
+
+async function runSweep() {
+  const steps = Math.min(12, Math.max(2, sweepSteps));
+  const lo = Math.min(sweepFrom, sweepTo), hi = Math.max(sweepFrom, sweepTo);
+  if (sweepParam === 'demand_pct' && lo < -90) {
+    lab.error = 'Demand cannot fall more than 90%.';
+    return render(root);
+  }
+  const values = [...new Set(Array.from({ length: steps }, (_, i) => Math.round((lo + ((hi - lo) * i) / (steps - 1)) * 10) / 10))];
+  const neutral = sweepParam === 'capacity_pct' ? 100 : 0;
+  lab.sweepBusy = true;
+  render(root);
+  try {
+    const r = await engine.compare(sc(), values.map((v) => ({ id: String(v), name: `${v}`, params: v === neutral ? {} : { [sweepParam]: v } })));
+    if (r.valid === false) lab.error = (r.errors ?? []).map((e: Json) => e.message).join('\n');
+    else lab.sweep = { param: sweepParam, values, resp: r, key: JSON.stringify([currentHash(), sweepParam, values]) };
+  } catch (e: any) {
+    lab.error = `Steps failed: ${e.message}`;
+  } finally {
+    lab.sweepBusy = false;
+    render(root);
+  }
+}
+
+export function sweepCharts(sw: { param: string; values: number[]; resp: Json }) {
+  const cfg = SWEEP[sw.param];
+  const rows: Json[] = sw.resp.variants;
+  const xs = sw.values.map((v) => `${v}`);
+  const val = (key: string, scale = 1) => rows.map((r) => (r.error || r.kpis[key] == null ? null : r.kpis[key] * scale));
+  const failed = rows.filter((r) => r.error);
+  return [
+    failed.length > 0 && h('p', { class: 'note' }, `${failed.length} step(s) could not be planned: ${failed[0].error}`),
+    h('div', { class: 'viz-grid' },
+      line('Demand met', xs, [{ name: 'Fill rate', values: val('expected_fill_rate', 100) }], (v) => `${v.toFixed(1)}%`, `${cfg.label} (${cfg.unit})`, 'Fill rate (%)'),
+      line('Lost sales value', xs, [{ name: 'Lost sales', values: val('expected_lost_margin_paise', 0.01) }], (v) => `₹${compact(v)}`, `${cfg.label} (${cfg.unit})`, 'Lost sales value (₹)'),
+      line('Freight cost', xs, [{ name: 'Freight', values: val('freight_paise', 0.01) }], (v) => rupees(v * 100), `${cfg.label} (${cfg.unit})`, 'Freight (₹)'),
+      line('Units shipped and short', xs, [{ name: 'Shipped', values: val('units_shipped') }, { name: 'Short', values: val('shortfall_units') }], num, `${cfg.label} (${cfg.unit})`, 'Units')),
+    h('p', { class: 'note' }, `Baseline values: fill rate ${kpi('expected_fill_rate').fmt(sw.resp.baseline.kpis.expected_fill_rate)}, freight ${rupees(sw.resp.baseline.kpis.freight_paise)}. Projections, not actual results.`),
+  ];
+}
+

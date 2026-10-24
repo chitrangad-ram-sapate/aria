@@ -10,15 +10,23 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 | `engine/aria/` | The engine modules the app runs (copied from the full ARIA tree) |
 | `engine/data/` | Bundled scenarios, networks, `params.yaml`, `replay_*.json` |
 | `engine/bridge.py` | Glue the worker calls (plus impact and excess figures from engine functions) |
-| `engine/device_forecast.py` | On-device forecast for an imported sales CSV: scikit-learn quantile boosting with split-conformal calibration, or empirical quantiles (labelled fallback) |
-| `engine/assumptions.yaml` | A1-A9, limitations and data sources for the Assumptions tab |
+| `engine/dataset_csv.py` | The data CSV (one file, several tables) to and from a scenario, with line-numbered errors: see `docs/csv-format.md` |
+| `engine/analysis.py` | Dashboard figures for a plan, and What-if scenarios built from model inputs |
+| `engine/device_forecast.py` | On-device forecast for the CSV's sales table: scikit-learn quantile boosting with split-conformal calibration, or empirical quantiles (labelled fallback) |
 | `engine/tests/` | The engine's pure tests (`ARIA_SOLVER=scipy`) |
+| `engine/app_tests/` | Tests of the data CSV, dashboard and What-if code |
 | `scripts/prepare.mjs` | Copies the Pyodide runtime + wheels into `public/pyodide/` and zips `engine/` into `public/aria-bundle.zip` |
 | `scripts/sync-engine.mjs` | `npm run sync-engine`: refreshes `engine/` from `../aria`, `../data`, `../tests` when they exist |
-| `scripts/smoke.mjs` | Headless Chrome smoke check of the built app |
+| `scripts/smoke.mjs` | Headless Chrome end-to-end check of the built app |
 | `android/`, `ios/` | Capacitor native projects |
 
-Views: Plan (scenario, CSV import, editable stock, impact vs baseline (a), allocations, shortfalls, excess, forecasts, explain, `.svcr` and pick lists), Proof, Disruption Lab, Records, Assumptions.
+Views:
+- **Home:** load your data CSV (or a sample), plan, network diagram, shortages, pick lists, editable stock with Save, `.svcr`.
+- **What if:** scenarios compared with the baseline, plus a step sweep.
+- **Results:** dashboard with KPIs, network, charts, scenario comparison and, for samples, the historical replay.
+- **Files:** open `.svcr` plan files.
+
+All data enters through one CSV file (`docs/csv-format.md`).
 
 ## Develop
 
@@ -33,8 +41,9 @@ npm run dev          # http://localhost:5173 (first run downloads the Pyodide wh
 
 ```bash
 npm run build        # dist/  (web bundle, about 44 MB, mostly Pyodide, SciPy and scikit-learn)
-npm run smoke        # headless Chrome: boot, plan, impact, STALE, .svcr export/open/tamper, disruption, CSV import, assumptions, proof
-cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest -q
+npm run smoke        # headless Chrome at phone size: CSV uploads (broken, two datasets, partial, sales), plan, network,
+                     # Results charts, stock Save, What-if scenarios and steps, sample replay, .svcr export, reload restore
+cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest tests app_tests -q
 ```
 
 ## Android

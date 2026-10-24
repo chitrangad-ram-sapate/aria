@@ -1,0 +1,26 @@
+network_id: world_to_nukualofa_2026049
+name: Nuku‘alofa (Tongatapu, TO) - generated, seed 2026049
+country: TO
+godowns:
+- godown_id: G_NUKUALOFA
+  name: Nuku‘alofa depot
+  lat: -21.1368
+  lon: -175.2011
+towns:
+- town_id: T_NUKUALOFA
+  name: Nuku‘alofa
+  population_2011: 22400
+  lat: -21.1368
+  lon: -175.2011
+  country: TO
+  admin1: Tongatapu
+  tz: Pacific/Tongatapu
+routes:
+- godown_id: G_NUKUALOFA
+  town_id: T_NUKUALOFA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

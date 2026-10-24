@@ -377,3 +377,56 @@ Encoded in `.github/CODEOWNERS`.
 **Alternatives rejected:**
 - Dark theme by default: the reference is light, and outdoor godown use favours light.
 - Data tables as the main view: too dense for non-technical users.
+
+### D-033 · Data enters through one CSV file · Accepted
+**Context:** Every number the app planned on came from bundled JSON scenarios; users could only import sales history. Teams need to run their own network, stock and demand without code changes.
+**Decision:**
+- **One data CSV** with sections (`# settings`, `# products`, `# depots`, `# towns`, `# routes`, `# stock`, optional `# town_stock`, then `# demand` or `# sales`). The format is in `docs/csv-format.md`; the parser is `engine/dataset_csv.py`.
+- **Errors carry table and line numbers.** A rejected file changes nothing. Model-level rules (shelf life, routes, references) are then checked by the existing validator.
+- **A partial file** (for example only `# stock`) updates those tables and keeps the rest; the app says which were kept.
+- **Samples load through the same reader**, converted to CSV first, so there is one data path. The round trip is exact: all 4 samples keep their `scenario_hash`.
+- **The app opens empty** until a CSV or a sample is loaded. The last dataset is stored on the device as CSV (including saved stock edits) and restored on the next start.
+- **Defaults** for empty optional cells come from the engine schema (for example `vehicle_class` road_avg, `min_days_at_receipt` 0) and are listed in the in-app format sheet.
+
+**Why:** The engine is network-agnostic (D-020); the data entry must be too. A spreadsheet is what distributors already keep.
+
+### D-034 · Assumptions screen removed from the app · Accepted
+**Context:** The team asked to drop the separate Assumptions section.
+**Decision:** The screen, its header help button and the engine call are gone. No calculation read it: it only displayed `assumptions.yaml`, which moves to `docs/assumptions.yaml` so the assumptions stay documented. The parameters themselves are unchanged and still used by the engine.
+
+### D-035 · What-if: scenarios from model inputs, compared with the baseline · Accepted
+**Context:** The old screen applied one shock at a time. Its truck-restriction list had a single entry, "6t", which read as "six turns, one option".
+**Decision:**
+- **"6t" is the 6-tonne truck class, not a turn limit.** A restriction can only force a class that is dearer per tonne-km than the route's own class; `shocks.apply` ignores any other. Most sample routes already use 6t, the dearest class, so the list could never offer more. The list is now built from the route's data (`analysis.vehicle_options`); when it is empty the app explains why.
+- **Scenarios** (up to 8 plus the baseline) combine:
+  - demand change (−90 % to +200 %, by product and town);
+  - depot loading capacity (% of capacity, or of baseline shipments when a depot has no limit);
+  - freight rate change, stock lost by depot and product, and trade margin;
+  - any number of route closures and truck restrictions.
+
+  Closures, restrictions and stock loss reuse the existing shocks. Demand scaling is the FESTIVAL_SPIKE rule, allowing decreases.
+- **`compare`** plans the baseline and every scenario with the unchanged pipeline (ARIA, else the labelled usual method). It returns KPIs with absolute and % differences, and flows and depot loads per scenario. Plans are cached by `scenario_hash`, so editing one scenario re-solves only that one.
+- **Step sweep:** one input over a user-chosen range and number of steps (2-12), drawn as line charts.
+
+**Why:** "What if demand rises?" or "what if a depot loads less?" is answered by changing the model's real inputs and re-planning, never by invented formulas.
+
+### D-036 · Results dashboard · Accepted
+**Context:** Results showed only the bundled replay table.
+**Decision:** Results is built from tonight's plan (`analysis.summarize`). It shows:
+- KPI cards, each compared with the other method;
+- the network diagram;
+- donuts for units by depot and short units by reason;
+- a % bar chart of ARIA against the usual method;
+- bars of units sent against median demand per town;
+- a histogram of shelf life left on arrival;
+- a flowchart of how the plan was made, with real counts;
+- the sales-history line chart (when the CSV has sales);
+- the What-if comparison and sweep;
+- a depot and route table.
+
+Badges mark data, calculated output and projections. The bundled replay appears only for samples, labelled as a historical test. Charts are dependency-free SVG (`src/charts.ts`) with a fixed colour order, tap tooltips and a "Show as table" view on every chart.
+**Network diagram:** depots on the left, towns on the right, ordered by barycentre to reduce crossings. Rows have fixed height, so nodes and labels never overlap. Arrow width shows units. Tapping a node or arrow shows its numbers. Unused and closed routes appear on request. With more than 25 towns, towns that get nothing are folded.
+
+### D-037 · Stock edits are saved explicitly · Accepted
+**Context:** Edits in "Edit depot stock" applied on every keystroke, with no way to cancel.
+**Decision:** The sheet edits a draft. **Save stock** applies it, re-validates the inputs and stores the dataset on the device; **Cancel** discards it. Save is disabled while any value is not a whole number of 0 or more.

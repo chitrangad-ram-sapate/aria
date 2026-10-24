@@ -1,0 +1,269 @@
+network_id: world_ps_bayt_jala_2026019
+name: Bayt Jālā (West Bank, PS) - generated, seed 2026019
+country: PS
+godowns:
+- godown_id: G_QIRYAT_HAYOVEL
+  name: Qiryat HaYovel depot
+  lat: 31.7667
+  lon: 35.1667
+- godown_id: G_RAS_BAYRUT
+  name: Ra’s Bayrūt depot
+  lat: 33.9
+  lon: 35.4833
+towns:
+- town_id: T_BAYT_JALA
+  name: Bayt Jālā
+  population_2011: 16183
+  lat: 31.7154
+  lon: 35.1879
+  country: PS
+  admin1: West Bank
+  tz: Asia/Hebron
+- town_id: T_PORT_SAID
+  name: Port Said
+  population_2011: 780515
+  lat: 31.2653
+  lon: 32.3019
+  country: EG
+  admin1: Port Said
+  tz: Africa/Cairo
+- town_id: T_HERZLIYA
+  name: Herzliya
+  population_2011: 97470
+  lat: 32.1663
+  lon: 34.8254
+  country: IL
+  admin1: Tel Aviv
+  tz: Asia/Jerusalem
+- town_id: T_KFAR_SABA
+  name: Kfar Saba
+  population_2011: 110456
+  lat: 32.175
+  lon: 34.9069
+  country: IL
+  admin1: Central District
+  tz: Asia/Jerusalem
+- town_id: T_KFAR_YONA
+  name: Kfar Yona
+  population_2011: 24778
+  lat: 32.3152
+  lon: 34.9357
+  country: IL
+  admin1: Central District
+  tz: Asia/Jerusalem
+- town_id: T_PETAH_TIQVA
+  name: Petaẖ Tiqva
+  population_2011: 253529
+  lat: 32.0888
+  lon: 34.8867
+  country: IL
+  admin1: Central District
+  tz: Asia/Jerusalem
+- town_id: T_QIRYAT_HAYOVEL
+  name: Qiryat HaYovel
+  population_2011: 25000
+  lat: 31.7667
+  lon: 35.1667
+  country: IL
+  admin1: Jerusalem
+  tz: Asia/Jerusalem
+- town_id: T_YIRKA
+  name: Yirkā
+  population_2011: 17171
+  lat: 32.9544
+  lon: 35.212
+  country: IL
+  admin1: Northern District
+  tz: Asia/Jerusalem
+- town_id: T_SAFI
+  name: Safi
+  population_2011: 15200
+  lat: 31.0361
+  lon: 35.4654
+  country: JO
+  admin1: Karak
+  tz: Asia/Amman
+- town_id: T_BSHARRI
+  name: Bsharri
+  population_2011: 20000
+  lat: 34.2508
+  lon: 36.0106
+  country: LB
+  admin1: North Lebanon
+  tz: Asia/Beirut
+- town_id: T_RAS_BAYRUT
+  name: Ra’s Bayrūt
+  population_2011: 1251739
+  lat: 33.9
+  lon: 35.4833
+  country: LB
+  admin1: Beirut
+  tz: Asia/Beirut
+- town_id: T_SURIF_CITY
+  name: Surif City
+  population_2011: 25242
+  lat: 31.6508
+  lon: 35.0644
+  country: PS
+  admin1: West Bank
+  tz: Asia/Hebron
+- town_id: T_HALHUL
+  name: Ḩalḩūl
+  population_2011: 21076
+  lat: 31.5803
+  lon: 35.1018
+  country: PS
+  admin1: West Bank
+  tz: Asia/Hebron
+- town_id: T_DARAYYA
+  name: Dārayyā
+  population_2011: 71596
+  lat: 33.4584
+  lon: 36.2326
+  country: SY
+  admin1: Rif-dimashq
+  tz: Asia/Damascus
+routes:
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_BAYT_JALA
+  road_km: 7.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_PORT_SAID
+  road_km: 346.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_HERZLIYA
+  road_km: 68.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_KFAR_SABA
+  road_km: 64.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_KFAR_YONA
+  road_km: 81.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_PETAH_TIQVA
+  road_km: 55.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_QIRYAT_HAYOVEL
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_YIRKA
+  road_km: 165.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_SAFI
+  road_km: 107.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_BSHARRI
+  road_km: 359.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_RAS_BAYRUT
+  road_km: 298.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_SURIF_CITY
+  road_km: 20.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_HALHUL
+  road_km: 27.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_QIRYAT_HAYOVEL
+  town_id: T_DARAYYA
+  road_km: 266.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_BAYT_JALA
+  road_km: 305.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_PORT_SAID
+  road_km: 522.4
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_HERZLIYA
+  road_km: 252.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_KFAR_SABA
+  road_km: 249.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_KFAR_YONA
+  road_km: 229.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_PETAH_TIQVA
+  road_km: 261.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_QIRYAT_HAYOVEL
+  road_km: 298.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_YIRKA
+  road_km: 135.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_SAFI
+  road_km: 398.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_BSHARRI
+  road_km: 77.9
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAS_BAYRUT
+  town_id: T_RAS_BAYRUT
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAS_BAYRUT
+  town_id: T_SURIF_CITY
+  road_km: 316.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_HALHUL
+  road_km: 325.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_RAS_BAYRUT
+  town_id: T_DARAYYA
+  road_km: 106.2
+  transit_days: 1
+  vehicle_class: road_avg
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

@@ -1,0 +1,137 @@
+network_id: world_ci_dianra_2026045
+name: Dianra (Woroba, CI) - generated, seed 2026045
+country: CI
+godowns:
+- godown_id: G_DIANRA
+  name: Dianra depot
+  lat: 8.9433
+  lon: -6.2549
+- godown_id: G_BOUNDIALI
+  name: Boundiali depot
+  lat: 9.5217
+  lon: -6.4869
+- godown_id: G_DIKODOUGOU
+  name: Dikodougou depot
+  lat: 9.0676
+  lon: -5.7722
+- godown_id: G_KORHOGO
+  name: Korhogo depot
+  lat: 9.458
+  lon: -5.6296
+towns:
+- town_id: T_DIANRA
+  name: Dianra
+  population_2011: 33548
+  lat: 8.9433
+  lon: -6.2549
+  country: CI
+  admin1: Woroba
+  tz: Africa/Abidjan
+- town_id: T_BOUNDIALI
+  name: Boundiali
+  population_2011: 51803
+  lat: 9.5217
+  lon: -6.4869
+  country: CI
+  admin1: Savanes District
+  tz: Africa/Abidjan
+- town_id: T_DIKODOUGOU
+  name: Dikodougou
+  population_2011: 18087
+  lat: 9.0676
+  lon: -5.7722
+  country: CI
+  admin1: Savanes District
+  tz: Africa/Abidjan
+- town_id: T_KORHOGO
+  name: Korhogo
+  population_2011: 440926
+  lat: 9.458
+  lon: -5.6296
+  country: CI
+  admin1: Savanes District
+  tz: Africa/Abidjan
+routes:
+- godown_id: G_DIANRA
+  town_id: T_DIANRA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DIANRA
+  town_id: T_BOUNDIALI
+  road_km: 86.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DIANRA
+  town_id: T_DIKODOUGOU
+  road_km: 68.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DIANRA
+  town_id: T_KORHOGO
+  road_km: 111.7
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_BOUNDIALI
+  town_id: T_DIANRA
+  road_km: 86.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_BOUNDIALI
+  town_id: T_BOUNDIALI
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_BOUNDIALI
+  town_id: T_DIKODOUGOU
+  road_km: 116.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_BOUNDIALI
+  town_id: T_KORHOGO
+  road_km: 117.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_DIKODOUGOU
+  town_id: T_DIANRA
+  road_km: 68.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DIKODOUGOU
+  town_id: T_BOUNDIALI
+  road_km: 116.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_DIKODOUGOU
+  town_id: T_DIKODOUGOU
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DIKODOUGOU
+  town_id: T_KORHOGO
+  road_km: 57.7
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KORHOGO
+  town_id: T_DIANRA
+  road_km: 111.7
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KORHOGO
+  town_id: T_BOUNDIALI
+  road_km: 117.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KORHOGO
+  town_id: T_DIKODOUGOU
+  road_km: 57.7
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KORHOGO
+  town_id: T_KORHOGO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

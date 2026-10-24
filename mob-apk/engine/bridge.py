@@ -12,16 +12,16 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
+import analysis
+import dataset_csv
 from aria import svcr
-from aria.engine import pipeline
-from aria.engine import values
+from aria.engine import pipeline, values
 from aria.engine.diff import expected_lost_margin
 from aria.engine.eligibility import at_risk
 from aria.engine.network_model import default_segments, on_hand
 from aria.engine.reasons import _Ctx
-from aria.engine.shocks import apply as apply_shocks
 from aria.hashing import scenario_hash
-from aria.schemas import QUANTILE_LEVELS, Plan, Scenario, Shock
+from aria.schemas import QUANTILE_LEVELS, Plan, Scenario
 from aria.validate import validate as _validate
 
 ROOT = Path(__file__).resolve().parent  # engine/ here, the unpacked bundle in the Pyodide FS
@@ -29,7 +29,7 @@ DATA = ROOT / "data"
 BUNDLED_FORECAST = "LightGBM quantile forecast, conformal-calibrated"
 MAX_PLANS = 200
 PLANS: OrderedDict[str, tuple[Scenario, Plan]] = OrderedDict()
-LAST_PLAN: dict[str, dict] = {}  # scenario_hash -> plan() result, reused as what-if "before"
+LAST_PLAN: dict[str, dict] = {}  # scenario_hash -> plan() result, reused as the What-if baseline
 
 
 def _j(o):
@@ -108,7 +108,9 @@ def plan(scenario_json: str) -> str:
     LAST_PLAN.clear()
     LAST_PLAN[result["scenario_hash"]] = result
     impact = {"aria": _impact(sc, result["aria"]), "baseline_a": _impact(sc, result["baseline_a"])}
-    return _out({"valid": True, "warnings": report["warnings"], **result, "impact": impact, "excess": _excess(sc)})
+    dashboard = {k: analysis.summarize(sc, result[k], impact[k]) for k in ("aria", "baseline_a")}
+    return _out({"valid": True, "warnings": report["warnings"], **result, "impact": impact, "excess": _excess(sc),
+                 "dashboard": dashboard})
 
 
 def _impact(sc: Scenario, p: Plan | None) -> dict | None:
@@ -168,20 +170,6 @@ def _excess(sc: Scenario) -> list[dict]:
     return sorted(out, key=lambda r: -r["excess_units"])
 
 
-def whatif(scenario_json: str, shocks_json: str) -> str:
-    payload, shocks_raw = json.loads(scenario_json), json.loads(shocks_json)
-    report = _validate(payload, shocks=shocks_raw)
-    if not report["valid"]:
-        return _out(report)
-    sc = Scenario.model_validate(payload)
-    shocks = [Shock.model_validate(s) for s in shocks_raw]
-    result = pipeline.whatif(sc, shocks, before=LAST_PLAN.get(scenario_hash(sc)))
-    sc_after = apply_shocks(sc, shocks)
-    for side, scen in (("before", sc), ("after", sc_after)):
-        _remember(scen, result[side]["aria"], result[side]["baseline_a"])
-    return _out({"valid": True, "scenario_hash": scenario_hash(sc), **result})
-
-
 def explain(plan_id: str, town: str, product: str) -> str:
     if plan_id not in PLANS:
         raise KeyError(f"plan {plan_id!r} not found; re-run the plan")
@@ -226,28 +214,81 @@ def replay(network: str, freight_point: str | None = None) -> str:
     return _out({**context, "available_freight_points": list(points), **points[key]})
 
 
-def assumptions() -> str:
-    """Assumptions A1-A9, limitations, data sources and the full parameter registry."""
-    doc = yaml.safe_load((ROOT / "assumptions.yaml").read_text(encoding="utf-8"))
-    params = (yaml.safe_load((DATA / "params.yaml").read_text(encoding="utf-8")) or {}).get("parameters", {})
-    registry = [{"name": k, "value": v.get("value"), "status": v.get("status"), "source": v.get("source")}
-                for k, v in params.items()]
-    fx = params.get("usd_inr_fx") or {}
-    sources = doc["data_sources"] + [{"name": f"USD to INR rate {fx.get('value')} (fetched {fx.get('fetched')})",
-                                      "ref": "D-013", "use": fx.get("source")}]
-    return _out({**doc, "data_sources": sources, "parameters": registry, "bundled_forecast": BUNDLED_FORECAST})
+# ---------- data CSV and scenario analysis ----------
+
+def load_csv(text: str, base_json: str | None, use_ml: bool) -> str:
+    """Parse a data CSV; sections it lacks come from base (the current dataset) when given."""
+    base = json.loads(base_json) if base_json else None
+    r = dataset_csv.from_csv(text, base, bool(use_ml))
+    if r["ok"]:
+        report = _validate(r["scenario"])
+        r["validation"] = report
+    return _out(r)
 
 
-def import_csv(text: str, scenario_json: str, use_ml: bool) -> str:
-    """Forecast an imported sales CSV on the device and put the result into the scenario's demand."""
-    import device_forecast
+def sample_csv(scenario_id: str) -> str:
+    return dataset_csv.to_csv(json.loads(get_scenario(scenario_id)))
 
+
+def export_csv(scenario_json: str) -> str:
+    return dataset_csv.to_csv(json.loads(scenario_json))
+
+
+def csv_format() -> str:
+    return _out(dataset_csv.format_spec())
+
+
+def vehicle_options(scenario_json: str, godown_id: str, town_id: str) -> str:
+    return _out(analysis.vehicle_options(Scenario.model_validate(json.loads(scenario_json)), godown_id, town_id))
+
+
+RUNS: OrderedDict[str, dict] = OrderedDict()  # scenario_hash -> plan() result, for repeated comparisons
+
+
+def _run(sc: Scenario) -> dict:
+    key = scenario_hash(sc)
+    if key in LAST_PLAN:
+        return LAST_PLAN[key]
+    if key not in RUNS:
+        RUNS[key] = pipeline.plan(sc)
+        _remember(sc, RUNS[key]["aria"], RUNS[key]["baseline_a"])
+        while len(RUNS) > 24:
+            RUNS.popitem(last=False)
+    RUNS.move_to_end(key)
+    return RUNS[key]
+
+
+def _scenario_result(sc: Scenario, name: str, base_kpis: dict | None) -> dict:
+    res = _run(sc)
+    used = res["recommended"]
+    plan_used = res[used]
+    summ = analysis.summarize(sc, plan_used, _impact(sc, plan_used))
+    usual = analysis.summarize(sc, res["baseline_a"], _impact(sc, res["baseline_a"]))
+    row = analysis.compare_row(name, summ["kpis"], base_kpis)
+    return {**row, "scenario_hash": res["scenario_hash"], "recommended": used, "aria_withheld": res["aria_withheld"],
+            "verified": summ["kpis"]["verified"], "solve_ms": res["solve_ms"], "usual_kpis": {k: usual["kpis"].get(k) for k in analysis.KPI_KEYS},
+            "flows": summ["flows"], "depots": summ["depots"], "towns": summ["towns"], "plan_id": plan_used.plan_id}
+
+
+def compare(scenario_json: str, variants_json: str) -> str:
+    """Baseline (the inputs as they are) and each variant [{name, params}] planned and compared.
+
+    → {valid: false, errors} or {valid: true, baseline, variants: [...]} with absolute and % differences."""
     payload = json.loads(scenario_json)
-    try:
-        fc = device_forecast.forecast(text, payload, bool(use_ml))
-    except (ValueError, KeyError) as exc:
-        return _out({"ok": False, "error": str(exc)})
-    new = {(d["town_id"], d["product_id"]): d for d in fc.pop("demand")}
-    payload["demand"] = [d for d in payload.get("demand", []) if (d["town_id"], d["product_id"]) not in new] + list(new.values())
-    payload["scenario_id"] = f"{payload.get('scenario_id', 'scenario')} + CSV import"
-    return _out({"ok": True, "scenario": payload, "pairs": len(new), **fc})
+    report = _validate(payload)
+    if not report["valid"]:
+        return _out(report)
+    sc = Scenario.model_validate(payload)
+    base = _scenario_result(sc, "Baseline", None)
+    shipped = {d["godown_id"]: d["shipped"] for d in base["depots"]}
+    out = []
+    for v in json.loads(variants_json):
+        try:
+            sc2 = analysis.apply(sc, v.get("params") or {}, shipped)
+            rep = _validate(sc2.model_dump(mode="json"))
+            if not rep["valid"]:
+                raise ValueError("; ".join(e["message"] for e in rep["errors"][:3]))
+            out.append({**_scenario_result(sc2, v.get("name") or "Scenario", base["kpis"]), "id": v.get("id")})
+        except (ValueError, KeyError) as exc:
+            out.append({"name": v.get("name"), "id": v.get("id"), "error": str(exc)})
+    return _out({"valid": True, "scenario_hash": scenario_hash(sc), "baseline": base, "variants": out})
