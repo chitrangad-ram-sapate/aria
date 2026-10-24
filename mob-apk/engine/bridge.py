@@ -134,9 +134,10 @@ def _impact(sc: Scenario, p: Plan | None) -> dict | None:
             demand += w * (1 - tau)
             served += f * (1 - tau)
     products = {k.product_id: k for k in sc.products}
-    wo_units = wo_paise = 0
+    wo_units = wo_paise = risk_shipped = 0
     for lot in sc.lots:
         if lot.product_id in products and at_risk(lot, products[lot.product_id], sc.routes):
+            risk_shipped += min(lot.qty_units, by_lot.get(lot.lot_id, 0))
             left = max(0, lot.qty_units - by_lot.get(lot.lot_id, 0))
             wo_units += left
             wo_paise += round(values.writeoff_base(products[lot.product_id], sc.policy) * left)
@@ -147,7 +148,7 @@ def _impact(sc: Scenario, p: Plan | None) -> dict | None:
         "expected_lost_margin_paise": expected_lost_margin(sc, p),
         "freight_paise": p.metrics.get("freight_paise"),
         "units_shipped": p.metrics.get("units_shipped"),
-        "at_risk_units_shipped": p.metrics.get("at_risk_units"),
+        "at_risk_units_shipped": risk_shipped,  # same rule for every policy (metrics may differ per policy)
         "at_risk_units_left": wo_units,
         "at_risk_writeoff_paise": wo_paise,
     }
