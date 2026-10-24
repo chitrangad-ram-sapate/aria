@@ -1,5 +1,5 @@
 import './style.css';
-import { watchDrivers, watchProfile, watchReports, watchTeam, watchTrips, logOut, type Profile } from './cloud';
+import { watchDrivers, watchFiles, watchProfile, watchReports, watchTeam, watchTrips, logOut, type Profile } from './cloud';
 import { engine } from './engine';
 import { isNative, onFileOpened } from './native';
 import { network, notify, onFullRender, restoreSaved, state, subscribe } from './state';
@@ -25,6 +25,7 @@ const ADMIN: Record<string, View> = {
 };
 const DRIVER: Record<string, View> = {
   trips: { title: 'My trips', tab: 'My trips', icon: 'truck', render: driver.renderTrips, update: driver.update },
+  files: { title: 'Plan files', tab: 'Plans', icon: 'file', render: driver.renderFiles, update: driver.update },
   report: { title: 'Report a problem', tab: 'Report', icon: 'alert', render: driver.renderReport, update: driver.update },
   account: { title: 'Account', tab: 'Account', icon: 'user', render: account.render },
 };
@@ -108,6 +109,7 @@ watchProfile((p, user) => {
   stops.push(watchTeam(p.orgId, (t) => { state.team = t; notify(); }));
   stops.push(watchTrips(p.orgId, p.role === 'driver' ? p.uid : null, (ts) => { state.trips = ts; notify(); }));
   stops.push(watchReports(p.orgId, p.role === 'driver' ? p.uid : null, (rs) => { state.reports = rs; notify(); }));
+  stops.push(watchFiles(p.orgId, p.role === 'driver' ? p.uid : null, (fs) => { state.files = fs; notify(); }));
   if (p.role === 'admin') {
     stops.push(watchDrivers(p.orgId, (ds) => { state.drivers = ds; notify(); }));
     startAdmin();
@@ -118,10 +120,10 @@ function startDriver(_p: Profile) {
   views = DRIVER;
   header.hidden = false;
   tabs.hidden = false;
-  tabs.className = 'tabs three';
+  tabs.className = 'tabs four';
   mount(left);
   mount(right);
-  mount(tabs, tabBtn('trips'), tabBtn('report'), tabBtn('account'));
+  mount(tabs, tabBtn('trips'), tabBtn('files'), tabBtn('report'), tabBtn('account'));
   show('trips');
 }
 
@@ -155,11 +157,15 @@ async function startAdmin() {
   }
 }
 
-// Plan files opened from other apps: admins only (drivers get trips, not plan files).
+// Plan files opened from other apps: admins check them with the planner, drivers view them.
 onFileOpened((name, bytes, error) => {
-  if (state.me?.role !== 'admin') return;
-  show('records');
-  records.openRecord(name, bytes, error);
+  if (state.me?.role === 'admin') {
+    show('records');
+    records.openRecord(name, bytes, error);
+  } else if (state.me?.role === 'driver' && bytes) {
+    show('files');
+    driver.openLocalFile(main, name, bytes);
+  }
 });
 
 if (!isNative && import.meta.env.PROD && 'serviceWorker' in navigator) {

@@ -1,6 +1,6 @@
 rules_version = '2';
 // Admin: owns one team (orgs/{orgId}), sees and pauses its drivers, sends and removes trips, reads reports.
-// Driver: joins a team with its code, reads and updates only their own trips, sends reports.
+// Driver: joins a team with its code, reads and updates only their own trips and plan files, sends reports.
 // Nobody can change their own role, team or paused state.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -42,6 +42,21 @@ service cloud.firestore {
         allow update: if isAdminOf(orgId)
           || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'stops', 'updatedAt']));
+      }
+
+      match /files/{fileId} {
+        allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
+        allow create: if isAdminOf(orgId)
+          && get(/databases/$(database)/documents/users/$(request.resource.data.driverUid)).data.orgId == orgId;
+        allow delete: if isAdminOf(orgId);
+        allow update: if activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['openedAt']);
+
+        match /parts/{partId} {
+          allow read: if isAdminOf(orgId) || (activeMemberOf(orgId)
+            && get(/databases/$(database)/documents/orgs/$(orgId)/files/$(fileId)).data.driverUid == request.auth.uid);
+          allow create, delete: if isAdminOf(orgId);
+        }
       }
 
       match /reports/{reportId} {

@@ -350,6 +350,7 @@ pre.code { background: var(--soft); border-radius: var(--radius-sm); padding: 10
 .code-box { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 12px 0; padding: 14px; background: var(--soft); border-radius: var(--radius-sm); }
 .join-code { font-size: 2rem; letter-spacing: 0.25em; font-variant-numeric: tabular-nums; }
 nav.tabs.three { grid-template-columns: 1fr 1fr 1fr; }
+nav.tabs.four { grid-template-columns: repeat(4, 1fr); }
 ul.plain-list { margin: 6px 0; padding-left: 18px; }
 ul.plain-list li { margin: 3px 0; }
 li.assign { flex-wrap: wrap; gap: 8px; }
@@ -357,3 +358,7 @@ li.assign select { flex: 1 1 100%; }
 ul.stops li { gap: 10px; }
 textarea { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--soft); color: var(--text); resize: vertical; }
 a.btn { text-decoration: none; }
+ul.checks li.pending::before { background: #9ca3af; }
+ul.checks li.failed::before { background: var(--bad); }
+.card h2 { overflow-wrap: anywhere; min-width: 0; }
+.row.between > .badge { flex-shrink: 0; }

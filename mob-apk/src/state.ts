@@ -2,7 +2,7 @@
 // increasing request ids, only the latest result is shown, edits mark results STALE.
 import { engine } from './engine';
 import { sampleName } from './plain';
-import type { Profile, Report, Trip } from './cloud';
+import type { PlanFile, Profile, Report, Trip } from './cloud';
 import type { Json } from './ui';
 
 export type Variant = { id: string; name: string; params: Json };
@@ -37,6 +37,7 @@ export const state = {
   drivers: [] as Profile[], // admin: every driver in the team
   trips: [] as Trip[], // admin: all team trips; driver: their own
   reports: [] as Report[],
+  files: [] as PlanFile[], // admin: plan files sent to drivers; driver: files sent to them
   bundledForecast: 'LightGBM quantile forecast, conformal-calibrated',
   engineInfo: '', // e.g. "Python 3.12.7 · SciPy HiGHS"
 };

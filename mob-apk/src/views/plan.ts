@@ -4,6 +4,7 @@
 import { engine } from '../engine';
 import { SVCR_MIME, shareFile } from '../native';
 import { forecastLabel, isStale, loadCsvText, loadSample, nextRid, notify, persist, rerender, scheduleValidate, state } from '../state';
+import { errorText, sendPlanFile } from '../cloud';
 import { networkDiagram } from './network';
 import { issueText, noteGroups, sampleName } from '../plain';
 import { Json, badge, bandBar, errorBox, fmt, h, icon, kv, mount, num, openSheet, pagedTable, rupees, segmented, select, table, toast } from '../ui';
@@ -325,7 +326,7 @@ function drawResult() {
         h('div', {}, h('span', { class: 'small' }, 'Shortages'), h('strong', {}, num(shorts.length)))),
       h('div', { class: 'tiles' },
         h('button', { class: 'tile', disabled: !allocs.length, onclick: () => pickSheet() }, icon('list'), 'Pick lists'),
-        h('button', { class: 'tile', disabled: stale || !verified, onclick: () => exportSvcr(shown, resp) }, icon('share'), 'Share plan'),
+        h('button', { class: 'tile', disabled: stale || !verified, onclick: () => shareSheet(shown, resp) }, icon('share'), 'Share plan'),
         h('button', { class: 'tile', onclick: stockSheet }, icon('edit'), 'Edit stock')),
       stale && h('p', { class: 'note' }, 'Inputs changed after planning. Plan again before sharing.'),
       h('p', { class: 'note' }, `Planned on this phone in ${(resp.solve_ms / 1000).toFixed(1)} s · ${shown === aria ? 'ARIA' : 'usual method'}`)),
@@ -374,13 +375,45 @@ function pickCsv(rows: Json[]) {
   return [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n') + '\n';
 }
 
-async function exportSvcr(p: Json, resp: Json) {
-  try {
-    const bytes = await engine.exportSvcr(p.plan_id);
-    await shareFile(`aria_${resp.scenario_hash.slice(0, 8)}_${p.policy}.svcr`, bytes, SVCR_MIME);
-  } catch (e: any) {
-    toast(`Sharing failed: ${e.message}`);
-  }
+const svcrName = (_p: Json, resp: Json) => `aria_${String(state.scenarioId).replace(/[^\w-]+/g, '_').slice(0, 40)}_${resp.scenario_hash.slice(0, 8)}.svcr`;
+
+/** Share the plan file: straight to drivers inside the app, or to any other app as a .svcr file. */
+function shareSheet(p: Json, resp: Json) {
+  const me = state.me;
+  const drivers = state.drivers.filter((d) => d.active);
+  const picked = new Set<string>();
+  const send = h('button', { class: 'btn primary block', disabled: true }, 'Choose at least one driver');
+  const paint = () => {
+    send.disabled = !picked.size;
+    send.textContent = picked.size ? `Send to ${picked.size} driver${picked.size > 1 ? 's' : ''}` : 'Choose at least one driver';
+  };
+  send.onclick = async () => {
+    send.disabled = true;
+    send.textContent = 'Sending...';
+    try {
+      const bytes = await engine.exportSvcr(p.plan_id);
+      const depots = new Set((p.allocations as Json[]).map((a) => a.godown_id));
+      await sendPlanFile(me!.orgId, drivers.filter((d) => picked.has(d.uid)).map((d) => ({ uid: d.uid, name: d.name })), svcrName(p, resp), bytes,
+        { dataset: state.scenarioId, day: state.scenario?.day || new Date().toISOString().slice(0, 10), units: (p.allocations as Json[]).reduce((n, a) => n + a.units, 0), depots: depots.size });
+      toast(`Plan file sent to ${picked.size} driver${picked.size > 1 ? 's' : ''}`);
+      (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
+    } catch (e) {
+      toast(errorText(e));
+      paint();
+    }
+  };
+  openSheet('Share plan',
+    h('h3', {}, 'Send to drivers in the app'),
+    me?.role === 'admin' && drivers.length
+      ? [h('ul', { class: 'rows' }, drivers.map((d) => h('li', {}, h('label', { class: 'check' },
+          h('input', { type: 'checkbox', 'aria-label': `Send to ${d.name}`, onchange: (e: Event) => { (e.target as HTMLInputElement).checked ? picked.add(d.uid) : picked.delete(d.uid); paint(); } }),
+          h('span', {}, h('strong', {}, d.name), d.vehicle ? ` · ${d.vehicle}` : ''))))), send,
+        h('p', { class: 'note' }, 'They open it under Plans in their app and see what goes where.')]
+      : h('p', { class: 'note' }, 'No active drivers yet. Share your team code from the Team screen.'),
+    h('h3', {}, 'Or share as a file'),
+    h('button', { class: 'btn block', onclick: async () => {
+      try { await shareFile(svcrName(p, resp), await engine.exportSvcr(p.plan_id), SVCR_MIME); } catch { toast('Sharing did not work. Please try again.'); }
+    } }, icon('share'), 'Share to WhatsApp, email...'));
 }
 
 export async function explainSheet(p: Json, row: Json) {

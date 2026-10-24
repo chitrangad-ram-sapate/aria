@@ -7,7 +7,7 @@ import {
   onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, updateProfile, type User,
 } from 'firebase/auth';
 import {
-  addDoc, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, initializeFirestore, onSnapshot, orderBy, persistentLocalCache,
+  addDoc, Bytes, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, initializeFirestore, onSnapshot, orderBy, persistentLocalCache,
   query, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from './firebase-config';
@@ -27,6 +27,8 @@ export type Profile = { uid: string; name: string; email: string; role: Role; or
 export type Stop = { town_id: string; town: string; units: number; items: { product: string; lot: string; units: number; days_left: number }[]; delivered: boolean };
 export type Trip = { id: string; driverUid: string; driverName: string; depot_id: string; depot: string; day: string; dataset: string; planKey: string; units: number; stops: Stop[];
   status: 'assigned' | 'loaded' | 'done'; createdAt?: any; updatedAt?: any };
+export type PlanFile = { id: string; driverUid: string; driverName: string; name: string; dataset: string; day: string; units: number; depots: number;
+  size: number; parts: number; createdAt?: any; openedAt?: any };
 export type Report = { id: string; driverUid: string; driverName: string; tripId: string | null; kind: string; note: string; createdAt?: any };
 
 // ---------- sign in / sign up ----------
@@ -98,6 +100,7 @@ export function errorText(e: any): string {
   if (code.includes('too-many-requests')) return 'Too many tries. Wait a minute and try again.';
   if (code.includes('network-request-failed') || code.includes('unavailable')) return 'No internet connection. Connect and try again.';
   if (code.includes('permission-denied')) return 'You do not have access to this.';
+  if (code.includes('file-incomplete')) return 'The file did not arrive in full. Ask your admin to send it again.';
   return 'Something went wrong. Please try again.';
 }
 
@@ -151,5 +154,49 @@ export const sendReport = (orgId: string, r: Omit<Report, 'id' | 'createdAt'>) =
 export const watchReports = (orgId: string, driverUid: string | null, cb: (rs: Report[]) => void) =>
   keep((err) => onSnapshot(query(collection(db, 'orgs', orgId, 'reports'), ...(driverUid ? [where('driverUid', '==', driverUid)] : []), orderBy('createdAt', 'desc')),
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }) as Report)), err));
+
+// ---------- plan files (.svcr) sent to drivers ----------
+// A plan file is about 1 MB (it carries the whole dataset); gzip brings it near 120 KB. It is stored in Firestore
+// (Storage is not on the free plan for new projects) in pieces under the 1 MiB document limit.
+const PART = 700_000;
+const pipe = async (b: Uint8Array, t: CompressionStream | DecompressionStream) =>
+  new Uint8Array(await new Response(new Blob([b as Uint8Array<ArrayBuffer>]).stream().pipeThrough(t)).arrayBuffer());
+
+export async function sendPlanFile(orgId: string, drivers: { uid: string; name: string }[], name: string, bytes: Uint8Array,
+  meta: { dataset: string; day: string; units: number; depots: number }) {
+  const z = await pipe(bytes, new CompressionStream('gzip'));
+  const parts = Math.max(1, Math.ceil(z.length / PART));
+  const batch = writeBatch(db);
+  for (const d of drivers) {
+    const ref = doc(collection(db, 'orgs', orgId, 'files'));
+    batch.set(ref, { driverUid: d.uid, driverName: d.name, name, ...meta, size: bytes.length, parts, createdAt: serverTimestamp() });
+    for (let i = 0; i < parts; i++) batch.set(doc(ref, 'parts', String(i)), { i, data: Bytes.fromUint8Array(z.subarray(i * PART, (i + 1) * PART)) });
+  }
+  await batch.commit();
+}
+
+export const watchFiles = (orgId: string, driverUid: string | null, cb: (fs: PlanFile[]) => void) =>
+  keep((err) => onSnapshot(query(collection(db, 'orgs', orgId, 'files'), ...(driverUid ? [where('driverUid', '==', driverUid)] : []), orderBy('createdAt', 'desc')),
+    (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }) as PlanFile)), err));
+
+/** The file's original bytes, as the admin's phone made them. */
+export async function loadPlanFile(orgId: string, f: PlanFile): Promise<Uint8Array> {
+  const snap = await getDocs(query(collection(db, 'orgs', orgId, 'files', f.id, 'parts'), orderBy('i')));
+  if (snap.size !== f.parts) throw new Error('file-incomplete');
+  const chunks = snap.docs.map((d) => (d.data().data as Bytes).toUint8Array());
+  const z = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let at = 0;
+  for (const c of chunks) { z.set(c, at); at += c.length; }
+  return pipe(z, new DecompressionStream('gzip'));
+}
+
+export const markOpened = (orgId: string, id: string) => updateDoc(doc(db, 'orgs', orgId, 'files', id), { openedAt: serverTimestamp() });
+
+export async function deletePlanFile(orgId: string, f: PlanFile) {
+  const batch = writeBatch(db);
+  for (let i = 0; i < f.parts; i++) batch.delete(doc(db, 'orgs', orgId, 'files', f.id, 'parts', String(i)));
+  batch.delete(doc(db, 'orgs', orgId, 'files', f.id));
+  await batch.commit();
+}
 
 export const when = (ts: any) => (ts?.toDate ? ts.toDate().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'just now');

@@ -30,7 +30,8 @@ All data enters through one CSV file (`docs/csv-format.md`).
 
 **Accounts and roles** (Firebase Auth + Firestore, free Spark plan; `src/cloud.ts`, `firestore.rules`):
 - **Admin** creates a team, gets a 6-letter team code and has full control: data, planning, What if, Results, plan files and the **Team** screen. The Team screen shows every driver (active or paused, last seen), sends tonight's trips (one per depot), tracks deliveries and lists drivers' problem reports.
-- **Driver** joins with the team code and sees only **My trips** (load, deliver stop by stop, share the pick list), **Report a problem** and **Account**. Drivers never load the planner.
+- **Driver** joins with the team code and sees only **My trips** (load, deliver stop by stop, share the pick list), **Plans** (plan files from the admin), **Report a problem** and **Account**. Drivers never load the planner.
+- The admin can send the `.svcr` plan file straight to drivers (Home → Share plan). Drivers open it under **Plans**: the app checks nothing was changed, shows what goes where, and can run the full safety check on their phone.
 - The admin can pause a driver, which locks them out at once. The rules stop anyone from changing their own role, team or paused state, and keep each team's data apart.
 
 Planning still runs on the phone. Only people, trips and reports go to Firestore, which also works offline and syncs later.
