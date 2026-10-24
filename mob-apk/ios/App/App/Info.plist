@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ARIA uses your location while a delivery is on its way, to confirm you reached the shop and to show your admin how the delivery is going.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>ARIA uses the camera to read barcodes and QR codes on product and lot labels.</string>
 	<key>CFBundleDevelopmentRegion</key>

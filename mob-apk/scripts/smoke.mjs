@@ -3,7 +3,8 @@
 // (every count and chart follows the file), a stock-only update, a sales history, edit and Save stock,
 // What-if scenarios with a route restriction and a step sweep, the Results dashboard, a sample with its
 // replay, the .svcr export, and a reload that restores the dataset. Then the team: a driver joins with the
-// admin's code, gets a trip, loads and delivers it and reports a problem; the admin sees it all and pauses the driver.
+// admin's code, gets a trip and delivers it with GeoProof (simulated GPS: refused far away and when imprecise,
+// unlocked at the shop, shop code, admin confirmation), reports a problem; the admin sees it all and pauses the driver.
 // Accounts live in the Firebase emulators (start them first: npx firebase-tools emulators:start --only auth,firestore
 // --project demo-aria). Screenshots go to a temp folder.
 // Usage: npm run build && npm run smoke   (CHROME_PATH=... to pick a browser; default: installed Chrome)
@@ -22,7 +23,7 @@ const run = Date.now().toString(36);
 const ADMIN = { name: 'Asha Patil', team: 'Patil Distributors', email: `admin-${run}@example.com`, password: 'secret123' };
 const DRIVER = { name: 'Ravi Kumar', phone: '9876543210', vehicle: 'MH09 AB 1234', email: `driver-${run}@example.com`, password: 'secret123' };
 const errors = [];
-page.on('pageerror', (e) => errors.push(String(e)));
+page.on('pageerror', (e) => errors.push(`admin: ${e} ${String(e.stack).split(String.fromCharCode(10)).slice(1, 4).join(' | ')}`));
 let allow400 = false; // the wrong-password step makes the sign-in service answer 400 on purpose
 page.on('console', (m) => { if (m.type() === 'error' && !(allow400 && /status of 400/.test(m.text()))) errors.push(m.text()); });
 const out = mkdtempSync(join(tmpdir(), 'aria-e2e-'));
@@ -301,9 +302,10 @@ try {
   await tab('Team');
   const code = (await page.locator('.join-code').textContent()).trim();
   expect(/^[A-Z0-9]{6}$/.test(code), `bad team code ${code}`);
-  const dctx = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  const dctx = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true, permissions: ['geolocation'], geolocation: { latitude: 16.5, longitude: 74.0, accuracy: 10 } });
   const dpage = await dctx.newPage();
-  dpage.on('pageerror', (e) => errors.push(`driver: ${e}`));
+  dpage.on('pageerror', (e) => errors.push(`driver: ${e} ${String(e.stack).split(String.fromCharCode(10)).slice(1, 4).join(' | ')}`));
+  dpage.on('console', (m) => { if (/evaluation error|PERMISSION_DENIED|not shared/.test(m.text())) console.log(`driver db refusal: ${m.text().slice(0, 400)}`); });
   await dpage.goto(url);
   await dpage.getByRole('button', { name: /I am a driver/ }).click();
   await dpage.fill('input[name=code]', 'ZZZZZZ');
@@ -331,19 +333,87 @@ try {
   step(`admin sends tonight's first depot load (${n} depot trips in the plan) to the driver`);
   await page.screenshot({ path: join(out, '09-admin-team.png'), fullPage: true });
 
+  // GeoProof: the driver can only hand in a delivery at the shop, with the shop's code; the admin confirms it
+  const TOWNS = { Kolhapur: [16.705, 74.2433], Ichalkaranji: [16.691, 74.4605], Jaysingpur: [16.779, 74.556], Kagal: [16.577, 74.315], Gadhinglaj: [16.224, 74.35], Ratnagiri: [16.9902, 73.312] };
+  const at = async (lat, lon, accuracy = 8) => { await dctx.setGeolocation({ latitude: lat, longitude: lon, accuracy }); await dpage.waitForTimeout(400); };
   await dpage.getByText('1 trip to do').waitFor({ timeout: 30_000 });
-  await dpage.getByRole('button', { name: 'I have loaded the truck' }).click();
+  expect(!(await dpage.locator('section.trip button', { hasText: /^Delivered$/ }).count()), 'old one-tap Delivered button still there');
+  await dpage.getByRole('button', { name: 'Start delivery' }).click();
   await dpage.getByText('On the road').first().waitFor();
-  let left = await dpage.locator('section.trip button', { hasText: 'Delivered' }).count();
-  const stopsN = left;
-  while (left > 0) {
-    await dpage.locator('section.trip button', { hasText: 'Delivered' }).first().click();
-    await dpage.waitForFunction((k) => document.querySelectorAll('section.trip button').length === 0 || [...document.querySelectorAll('section.trip button')].filter((b) => b.textContent.includes('Delivered')).length < k, left);
-    left = await dpage.locator('section.trip button', { hasText: 'Delivered' }).count();
+  const stopsN = await dpage.locator('section.trip ul.stops li').count();
+  // every stop but the first: set off, then report it could not be delivered
+  for (let i = 1; i < stopsN; i++) {
+    await dpage.locator('section.trip ul.stops li').nth(i).click();
+    await dpage.getByRole('button', { name: 'Go to this stop' }).click();
+    await dpage.getByText('On the way').first().waitFor({ timeout: 30_000 });
+    await dpage.getByRole('button', { name: 'Could not deliver here' }).click();
+    await dpage.getByRole('button', { name: 'Mark as could not deliver' }).click();
+    await dpage.getByText('Marked as could not deliver').waitFor({ timeout: 30_000 });
+    await dpage.getByRole('button', { name: 'All trips' }).click();
   }
+  // the first stop: far away, then imprecise, then at the shop
+  await dpage.locator('section.trip ul.stops li').first().click();
+  const town = (await dpage.locator('section.card h2').first().textContent()).trim();
+  const [tl, tn] = TOWNS[town];
+  expect(tl, `no coordinates for ${town}`);
+  await at(tl + 0.05, tn); // about 5.5 km north
+  await dpage.getByRole('button', { name: 'Go to this stop' }).click();
+  const deliveredBtn = dpage.locator('section.card button.big');
+  await dpage.getByText('Not at delivery location yet').first().waitFor({ timeout: 30_000 });
+  expect(await deliveredBtn.isDisabled(), 'Delivered unlocked far from the shop');
+  const far = await dpage.getByText(/About [\d.]+ km from the delivery point/).textContent();
+  await at(tl, tn, 200);
+  await dpage.getByText('Location is not precise enough yet').waitFor({ timeout: 30_000 });
+  expect(await deliveredBtn.isDisabled(), 'Delivered unlocked with poor accuracy');
+  await dctx.setGeolocation({ latitude: tl + 0.0002, longitude: tn, accuracy: 8 });
+  await dpage.waitForTimeout(1200);
+  await dctx.setGeolocation({ latitude: tl + 0.0001, longitude: tn, accuracy: 6 });
+  const arrive = dpage.getByRole('button', { name: 'Location check passed · Confirm recipient' });
+  await arrive.waitFor({ timeout: 30_000 });
+  expect(await arrive.isEnabled(), 'arrival not unlocked at the shop');
+  await dpage.screenshot({ path: join(out, '10a-driver-at-shop.png'), fullPage: true });
+  await arrive.click();
+  await dpage.getByText('Now confirm the recipient').waitFor({ timeout: 30_000 });
+  expect(await dpage.getByRole('button', { name: 'Submit delivery proof' }).isDisabled(), 'proof possible before a code exists');
+  step(`GeoProof: Delivered stays locked ${far.replace('About ', '').split(' from')[0]} away and with 200 m accuracy; two precise readings at ${town} unlock it`);
+
+  // admin makes the shop's code from the Deliveries list
+  await page.locator('.chips button', { hasText: 'On the way' }).click();
+  await page.locator('.rows li', { hasText: `${town} · ${DRIVER.name}` }).click();
+  const sheet2 = page.locator('dialog.sheet');
+  await sheet2.getByText('Location check on the driver\'s phone').waitFor();
+  await sheet2.getByText(/^Live: /).waitFor({ timeout: 30_000 }); // the driver's position reached the admin
+  await sheet2.getByRole('button', { name: 'Make delivery code' }).click();
+  const shopCode = (await sheet2.locator('.join-code').textContent()).trim();
+  expect(/^\d{6}$/.test(shopCode), `bad shop code ${shopCode}`);
+  await page.keyboard.press('Escape');
+  const wrong = String((Number(shopCode[0]) + 1) % 10) + shopCode.slice(1);
+  await dpage.getByRole('button', { name: 'Submit delivery proof' }).waitFor({ state: 'visible' });
+  await dpage.waitForFunction(() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent === 'Submit delivery proof'); return b && !b.disabled; }, null, { timeout: 30_000 });
+  await dpage.fill('input[aria-label="Recipient name"]', 'Ravi Patil');
+  await dpage.fill('input[aria-label="Recipient code"]', wrong);
+  await dpage.getByRole('button', { name: 'Submit delivery proof' }).click();
+  await dpage.getByText('That code is not right').waitFor({ timeout: 30_000 });
+  await dpage.fill('input[aria-label="Recipient code"]', shopCode);
+  await dpage.getByRole('button', { name: 'Submit delivery proof' }).click();
+  await dpage.getByText('Delivery submitted · awaiting confirmation').first().waitFor({ timeout: 30_000 });
+  expect(!(await dpage.getByText('Delivered and confirmed').count()), 'shown as confirmed before the admin confirmed');
+  step('wrong shop code refused; right code hands in the proof; the driver sees "awaiting confirmation", not delivered');
+
+  // admin confirms; the trip finishes for both
+  await page.locator('.chips button', { hasText: 'To confirm' }).click();
+  await page.locator('.rows li', { hasText: `${town} · ${DRIVER.name}` }).click();
+  await sheet2.getByText('Received by Ravi Patil').waitFor();
+  await page.screenshot({ path: join(out, '10b-admin-confirm.png'), fullPage: true });
+  await sheet2.getByRole('button', { name: 'Confirm delivered' }).click();
+  await page.getByText('Delivery confirmed').waitFor({ timeout: 30_000 });
+  await dpage.getByText('Delivered and confirmed by your admin').waitFor({ timeout: 30_000 });
+  await dpage.locator('details.card summary', { hasText: 'History' }).click();
+  await dpage.getByText('Delivery confirmed').first().waitFor({ timeout: 30_000 });
+  await dpage.getByRole('button', { name: 'All trips' }).click();
   await dpage.getByText('Finished').waitFor({ timeout: 30_000 });
-  step(`driver loads the truck and delivers all ${stopsN} stops; the trip moves to Finished`);
-  await page.locator('.rows li', { hasText: `${DRIVER.name} · from` }).getByText('Delivered').waitFor({ timeout: 30_000 });
+  step(`admin confirms ${town}; ${stopsN - 1} other stop(s) were reported undelivered; the trip moves to Finished and the history shows every step`);
+  await page.locator('.rows li', { hasText: `${DRIVER.name} · from` }).getByText('Delivered', { exact: true }).waitFor({ timeout: 30_000 });
   step('admin sees the trip as delivered');
 
   await dpage.locator('nav.tabs button.tab', { hasText: 'Report' }).click();
@@ -419,6 +489,7 @@ try {
   console.log(`\nall checks passed; screenshots in ${out}`);
 } catch (e) {
   await shot('failure').catch(() => {});
+  for (const [k, pg] of browser.contexts().flatMap((c) => c.pages()).entries()) await pg.screenshot({ path: join(out, `failure-page${k}.png`), fullPage: true }).catch(() => {});
   console.error(`FAIL ${e.message}\nscreenshots in ${out}\nerrors: ${errors.join('\n')}`);
   process.exitCode = 1;
 } finally {

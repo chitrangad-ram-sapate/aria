@@ -1,6 +1,7 @@
 // Admin's Team screen: the team code to share, every driver (active or paused, last seen, tonight's progress),
 // sending tonight's plan to drivers (one trip per depot), all trips with delivery progress, and driver reports.
-import { deletePlanFile, deleteTrip, sendTrips, setDriverActive, when, type PlanFile, type Profile, type Stop, type Trip } from '../cloud';
+import { cancelTrip, DEFAULT_POLICY, deletePlanFile, deleteTrip, reassignTrip, sendTrips, setDriverActive, when, type PlanFile, type Profile, type Stop, type Trip } from '../cloud';
+import { deliveriesCard, tripBadge, tripProgress } from './deliveries';
 import { shareText } from '../native';
 import { isStale, state } from '../state';
 import { Json, badge, errorBox, h, icon, kv, mount, num, openSheet, select, toast } from '../ui';
@@ -28,6 +29,7 @@ export function update() {
         if (how === 'copied') toast('Code copied');
       } }, icon('share'), 'Share the code')),
     sendCard(),
+    deliveriesCard(update),
     driversCard(),
     tripsCard(),
     filesCard(),
@@ -74,12 +76,23 @@ function sendCard() {
   const allSent = trips.every((t) => sentTo(t.depot_id));
   return [head, h('section', { class: 'card' },
     !active.length && h('p', { class: 'note' }, 'No active drivers yet. Share your team code so drivers can join.'),
+    (() => {
+      const missing = [...new Set(trips.flatMap((t) => t.stops.map((x) => x.town_id)))].filter((id) => !deliveryPoint(id));
+      return missing.length > 0 && h('p', { class: 'note' }, `${missing.length} town${missing.length > 1 ? 's have' : ' has'} no map position in your data (${missing.map(townName).join(', ')}). Arrival there cannot be checked until you set the delivery point under Deliveries, or add lat and lon to the towns table.`);
+    })(),
     h('ul', { class: 'rows' }, trips.map((t) => h('li', { class: 'assign' },
       h('div', { class: 'row-main' }, h('strong', {}, t.depot), h('span', {}, `${num(t.units)} units · ${t.stops.length} town${t.stops.length > 1 ? 's' : ''}`)),
       sentTo(t.depot_id) ? badge(`Sent to ${sentTo(t.depot_id)!.driverName}`, 'ok')
         : select(opts, choice[t.depot_id] ?? '', (v) => { choice[t.depot_id] = v; update(); }, `Driver for ${t.depot}`)))),
     h('button', { class: 'btn primary block', disabled: sending || !ready.length, onclick: () => send(trips) },
       sending ? 'Sending...' : allSent ? 'Every trip has been sent' : ready.length ? `Send ${ready.length} trip${ready.length > 1 ? 's' : ''} to drivers` : 'Choose a driver for each trip'))];
+}
+
+/** A town's delivery point from the data, only when it holds real coordinates (nothing is guessed from names). */
+function deliveryPoint(townId: string): { lat: number; lon: number } | null {
+  const t = state.scenario?.towns?.find((x: Json) => x.town_id === townId);
+  const ok = t && typeof t.lat === 'number' && typeof t.lon === 'number' && Math.abs(t.lat) <= 90 && Math.abs(t.lon) <= 180 && !(t.lat === 0 && t.lon === 0);
+  return ok ? { lat: t.lat, lon: t.lon } : null;
 }
 
 async function send(trips: ReturnType<typeof tripsFromPlan>) {
@@ -91,7 +104,7 @@ async function send(trips: ReturnType<typeof tripsFromPlan>) {
   sending = true;
   update();
   try {
-    await sendTrips(me.orgId, out);
+    await sendTrips(me.orgId, out, deliveryPoint, { ...DEFAULT_POLICY, ...state.team?.geo });
     for (const t of out) delete choice[t.depot_id];
     toast(`Sent ${out.length} trip${out.length > 1 ? 's' : ''}`);
   } catch (e: any) {
@@ -104,15 +117,15 @@ async function send(trips: ReturnType<typeof tripsFromPlan>) {
 }
 
 // ---------- drivers ----------
-const progress = (t: Trip) => `${t.stops.filter((s) => s.delivered).length} of ${t.stops.length} delivered`;
-const statusBadge = (t: Trip) => (t.status === 'done' ? badge('Delivered', 'ok') : t.status === 'loaded' ? badge('On the road', 'warn') : badge('Not started', ''));
+const progress = tripProgress;
+const statusBadge = tripBadge;
 
 function driversCard() {
   const ds = state.drivers;
   return [h('div', { class: 'section-head' }, h('h2', {}, 'Drivers', h('span', { class: 'count' }, num(ds.length)))),
     ds.length ? h('ul', { class: 'rows' }, ds.map((d) => {
       const mine = state.trips.filter((t) => t.driverUid === d.uid);
-      const open = mine.filter((t) => t.status !== 'done');
+      const open = mine.filter((t) => t.status !== 'done' && t.status !== 'cancelled');
       return h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => driverSheet(d), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') driverSheet(d); } },
         h('div', { class: 'row-main' }, h('strong', {}, d.name), h('span', {}, [d.vehicle, open.length ? `${open.length} trip${open.length > 1 ? 's' : ''} open` : 'No open trips'].filter(Boolean).join(' · '))),
         h('div', { class: 'row-end' }, d.active ? badge('Active', 'ok') : badge('Paused', 'bad'), h('span', {}, `seen ${when(d.lastSeen)}`)));
@@ -144,13 +157,37 @@ function tripsCard() {
 }
 
 function tripSheet(t: Trip) {
+  const me = state.me!;
+  const all = state.stops[t.id] ?? [];
+  const open = t.status === 'assigned' || t.status === 'loaded';
+  const others = state.drivers.filter((d) => d.active && d.uid !== t.driverUid);
+  let to = others[0]?.uid ?? '';
+  const reason = h('input', { type: 'text', placeholder: 'Reason for cancelling', 'aria-label': 'Reason for cancelling' });
   openSheet(`${t.driverName} · from ${t.depot}`,
     kv([['Day', t.day], ['Data', t.dataset], ['Units', num(t.units)], ['Progress', progress(t)], ['Last update', when(t.updatedAt)]]),
-    h('ul', { class: 'rows' }, t.stops.map((s) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, s.town), h('span', {}, `${num(s.units)} units · ${s.items.length} product line${s.items.length > 1 ? 's' : ''}`)),
-      s.delivered ? badge('Delivered', 'ok') : badge('Not yet', '')))),
-    h('button', { class: 'btn block danger', onclick: async () => {
-      if (!confirm(`Remove this trip from ${t.driverName}'s phone?`)) return;
-      try { await deleteTrip(state.me!.orgId, t.id); toast('Trip removed'); } catch { toast('Could not remove the trip.'); }
+    h('ul', { class: 'rows' }, t.stops.map((s, i) => {
+      const d = all.find((x) => x.i === i);
+      return h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, s.town), h('span', {}, `${num(s.units)} units · ${s.items.length} product line${s.items.length > 1 ? 's' : ''}`)),
+        d ? badge(...(({ delivered: ['Delivered', 'ok'], submitted: ['To confirm', 'warn'], in_transit: ['On the way', 'warn'], arrived: ['Arrived', 'warn'], failed: ['Not delivered', 'bad'],
+          rejected: ['Not accepted', 'bad'], cancelled: ['Cancelled', 'bad'], assigned: ['Not started', ''] } as Record<string, [string, any]>)[d.state])) : s.delivered ? badge('Delivered', 'ok') : badge('Not yet', ''));
+    })),
+    open && others.length > 0 && [h('h3', {}, 'Give to another driver'),
+      h('div', { class: 'grid2' }, select(others.map((d): [string, string] => [d.uid, d.name]), to, (v) => { to = v; }, 'New driver'),
+        h('button', { class: 'btn', onclick: async () => {
+          const d = state.drivers.find((x) => x.uid === to);
+          if (!d) return;
+          try { await reassignTrip(me.orgId, t, all, d, me); toast(`Trip given to ${d.name}`); } catch { toast('Could not change the driver. Check the internet connection.'); }
+          (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
+        } }, 'Give trip'))],
+    open && [h('h3', {}, 'Cancel this trip'), reason,
+      h('button', { class: 'btn block danger', onclick: async () => {
+        if (reason.value.trim().length < 3) return toast('Write why the trip is cancelled.');
+        try { await cancelTrip(me.orgId, t, all, reason.value.trim().slice(0, 300), me); toast('Trip cancelled'); } catch { toast('Could not cancel. Check the internet connection.'); }
+        (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
+      } }, 'Cancel trip')],
+    h('button', { class: 'btn block danger ghost', onclick: async () => {
+      if (!confirm(`Remove this trip and its delivery history from ${t.driverName}'s phone?`)) return;
+      try { await deleteTrip(me.orgId, t.id); toast('Trip removed'); } catch { toast('Could not remove the trip.'); }
       (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
     } }, 'Remove this trip'));
 }

@@ -424,3 +424,16 @@ table.compare th, table.compare td { padding: 8px 4px; border-bottom: 1px solid 
 table.compare th[scope="row"], table.compare thead th:first-child { text-align: left; font-weight: 500; }
 table.compare thead th { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
 table.compare .badge { white-space: nowrap; }
+
+/* GeoProof deliveries: map, tools, delivery chips, history */
+.map-card { padding: 8px; }
+.map-box { height: 300px; border-radius: var(--radius-sm); overflow: hidden; background: var(--soft); position: relative; z-index: 0; }
+.map-box.small-map { height: 220px; margin: 8px 0; }
+.map-off { padding: 16px; margin: 0; }
+.map-tools { display: flex; gap: 6px; margin: 8px 0 2px; flex-wrap: wrap; }
+.map-pin span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 0.8rem; border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / 0.35); }
+.chip.plain::before { display: none; }
+.chip-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--cta); color: #fff; font-size: 0.72rem; font-weight: 700; margin-left: 4px; }
+.btn.big { min-height: 56px; font-size: 1.02rem; }
+.events { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.alert:not(.ok):not(.bad):not(.warn) { background: var(--soft); }

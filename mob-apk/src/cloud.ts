@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import {
   addDoc, Bytes, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, initializeFirestore, onSnapshot, orderBy, persistentLocalCache,
-  query, serverTimestamp, setDoc, updateDoc, where, writeBatch, type Unsubscribe,
+  query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG } from './firebase-config';
 
@@ -26,7 +26,7 @@ export type Role = 'admin' | 'driver';
 export type Profile = { uid: string; name: string; email: string; role: Role; orgId: string; phone?: string; vehicle?: string; active: boolean; lastSeen?: any };
 export type Stop = { town_id: string; town: string; units: number; items: { product: string; lot: string; units: number; days_left: number }[]; delivered: boolean };
 export type Trip = { id: string; driverUid: string; driverName: string; depot_id: string; depot: string; day: string; dataset: string; planKey: string; units: number; stops: Stop[];
-  status: 'assigned' | 'loaded' | 'done'; createdAt?: any; updatedAt?: any };
+  status: 'assigned' | 'loaded' | 'done' | 'cancelled'; createdAt?: any; updatedAt?: any };
 export type PlanFile = { id: string; driverUid: string; driverName: string; name: string; dataset: string; day: string; units: number; depots: number;
   size: number; parts: number; createdAt?: any; openedAt?: any };
 export type Report = { id: string; driverUid: string; driverName: string; tripId: string | null; kind: string; note: string; createdAt?: any };
@@ -121,7 +121,7 @@ function keep(start: (onError: (e: unknown) => void) => Unsubscribe): Unsubscrib
   return () => { closed = true; clearTimeout(timer); stop(); };
 }
 
-export const watchTeam = (orgId: string, cb: (t: { name: string; joinCode: string }) => void) =>
+export const watchTeam = (orgId: string, cb: (t: { name: string; joinCode: string; geo?: Policy }) => void) =>
   keep((err) => onSnapshot(doc(db, 'orgs', orgId), (s) => s.exists() && cb(s.data() as any), err));
 
 export const watchDrivers = (orgId: string, cb: (ds: Profile[]) => void) =>
@@ -132,11 +132,6 @@ export const setDriverActive = (uid: string, active: boolean) => updateDoc(doc(d
 export const updateMyDetails = (uid: string, patch: { name?: string; phone?: string; vehicle?: string }) => updateDoc(doc(db, 'users', uid), patch);
 
 // ---------- trips ----------
-export async function sendTrips(orgId: string, trips: Omit<Trip, 'id'>[]) {
-  const batch = writeBatch(db);
-  for (const t of trips) batch.set(doc(collection(db, 'orgs', orgId, 'trips')), { ...t, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  await batch.commit();
-}
 
 export const watchTrips = (orgId: string, driverUid: string | null, cb: (ts: Trip[]) => void) =>
   keep((err) => onSnapshot(query(collection(db, 'orgs', orgId, 'trips'), ...(driverUid ? [where('driverUid', '==', driverUid)] : []), orderBy('createdAt', 'desc')),
@@ -145,7 +140,155 @@ export const watchTrips = (orgId: string, driverUid: string | null, cb: (ts: Tri
 export const updateTrip = (orgId: string, id: string, patch: Partial<Pick<Trip, 'status' | 'stops'>>) =>
   updateDoc(doc(db, 'orgs', orgId, 'trips', id), { ...patch, updatedAt: serverTimestamp() });
 
-export const deleteTrip = (orgId: string, id: string) => deleteDoc(doc(db, 'orgs', orgId, 'trips', id));
+// ---------- GeoProof: delivery stops (D-045) ----------
+// Each stop of a trip has its own record under orgs/{org}/trips/{trip}/stops/{i}: the approved delivery point, the
+// arrival rules, its state and a counter. Every change writes the numbered event with it (firestore.rules checks both).
+export type Policy = { radius_m: number; max_accuracy_m: number; max_age_s: number; readings: number };
+export const DEFAULT_POLICY: Policy = { radius_m: 100, max_accuracy_m: 50, max_age_s: 15, readings: 2 };
+export type StopState = 'assigned' | 'in_transit' | 'arrived' | 'submitted' | 'delivered' | 'rejected' | 'failed' | 'cancelled';
+export type Fix = { lat: number; lon: number; acc_m: number; fix_at: number };
+export type DeliveryStop = {
+  id: string; tripId: string; i: number; driverUid: string; town_id: string; town: string; depot_id: string;
+  lat: number | null; lon: number | null; mlon: number | null; policy: Policy; state: StopState; seq: number; codeGen: number;
+  createdAt?: any; updatedAt?: any; startedAt?: any;
+  arrival?: Fix & { dist_m: number; readings: number };
+  claim?: { name: string; gen: number; n: number };
+  review?: { by: string; decision: string; reason: string };
+  failReason?: string;
+  pending?: boolean; // the last change is on this phone and not yet accepted by the server
+};
+export type StopEvent = { seq: number; state: StopState; kind: string; by: string; name: string; role: string; at?: any; note?: string };
+export type LiveFix = Fix & { at?: any; stop: string };
+export const OPEN_STATES: StopState[] = ['assigned', 'in_transit', 'arrived', 'submitted', 'rejected', 'failed'];
+
+/** Metres per degree of longitude at a latitude (the rules use it to check the arrival radius without trigonometry). */
+export const metresPerDegLon = (lat: number) => 111320 * Math.cos((lat * Math.PI) / 180);
+
+const stopRef = (orgId: string, s: Pick<DeliveryStop, 'tripId' | 'id'>) => doc(db, 'orgs', orgId, 'trips', s.tripId, 'stops', s.id);
+
+/** Send trips, each with its stop records. One write batch per trip. */
+export async function sendTrips(orgId: string, trips: Omit<Trip, 'id'>[], point: (town_id: string) => { lat: number; lon: number } | null, policy: Policy) {
+  for (const t of trips) {
+    const batch = writeBatch(db);
+    const ref = doc(collection(db, 'orgs', orgId, 'trips'));
+    batch.set(ref, { ...t, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    t.stops.forEach((s, i) => {
+      const p = point(s.town_id);
+      batch.set(doc(ref, 'stops', String(i)), { tripId: ref.id, i, driverUid: t.driverUid, town_id: s.town_id, town: s.town, depot_id: t.depot_id,
+        lat: p?.lat ?? null, lon: p?.lon ?? null, mlon: p ? metresPerDegLon(p.lat) : null, policy, state: 'assigned', seq: 0, codeGen: 0,
+        createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    });
+    await batch.commit();
+  }
+}
+
+/** Change a stop and write its numbered event in the same batch. Fails if someone else changed it first. */
+export async function stepStop(orgId: string, s: DeliveryStop, patch: Partial<DeliveryStop>, kind: string, me: Profile, note?: string) {
+  const seq = s.seq + 1;
+  const batch = writeBatch(db);
+  const { pending: _p, id: _i, ...clean } = patch as any;
+  batch.update(stopRef(orgId, s), { ...clean, seq, updatedAt: serverTimestamp() });
+  batch.set(doc(stopRef(orgId, s), 'events', String(seq)), { seq, state: patch.state ?? s.state, kind, by: me.uid, name: me.name, role: me.role, at: serverTimestamp(),
+    ...(note ? { note } : {}) });
+  await batch.commit();
+}
+
+export const watchStops = (orgId: string, tripId: string, driverUid: string | null, cb: (ss: DeliveryStop[]) => void) =>
+  keep((err) => onSnapshot(query(collection(db, 'orgs', orgId, 'trips', tripId, 'stops'), ...(driverUid ? [where('driverUid', '==', driverUid)] : [])),
+    { includeMetadataChanges: true },
+    (q) => cb(q.docs.map((d) => ({ ...d.data(), id: d.id, pending: d.metadata.hasPendingWrites }) as DeliveryStop).sort((a, b) => a.i - b.i)), err));
+
+export const loadEvents = async (orgId: string, s: DeliveryStop) =>
+  (await getDocs(query(collection(stopRef(orgId, s), 'events'), orderBy('seq')))).docs.map((d) => d.data() as StopEvent);
+
+/** The driver's latest position on an active trip (one document, overwritten). */
+export const sendLive = (orgId: string, tripId: string, uid: string, f: Fix, stop: string) =>
+  setDoc(doc(db, 'orgs', orgId, 'trips', tripId, 'live', uid), { lat: f.lat, lon: f.lon, acc_m: f.acc_m, fix_at: f.fix_at, stop, at: serverTimestamp() });
+export const clearLive = (orgId: string, tripId: string, uid: string) => deleteDoc(doc(db, 'orgs', orgId, 'trips', tripId, 'live', uid));
+export const watchLive = (orgId: string, tripId: string, cb: (fs: (LiveFix & { uid: string })[]) => void) =>
+  keep((err) => onSnapshot(collection(db, 'orgs', orgId, 'trips', tripId, 'live'), (q) => cb(q.docs.map((d) => ({ ...(d.data() as LiveFix), uid: d.id }))), err));
+
+const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+
+/** Admin: a new 6-digit recipient code for a stop, valid 24 hours. Only its salted hash is stored; the code is returned once. */
+export async function makeCode(orgId: string, s: DeliveryStop, me: Profile): Promise<string> {
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
+  const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+  const hash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${code}`)));
+  const gen = s.codeGen + 1;
+  await setDoc(doc(stopRef(orgId, s), 'code', String(gen)), { hash, salt, expiresAt: Timestamp.fromMillis(Date.now() + 24 * 3600_000), createdAt: serverTimestamp() });
+  await stepStop(orgId, s, { codeGen: gen }, 'code', me);
+  return code;
+}
+
+/**
+ * Driver: hand in the recipient's code and name. Each try is recorded first (at most 5 per code), then the stop moves
+ * to "submitted" only if the database rules find the code matches. → 'ok' | 'wrong' | 'no-tries' | 'no-code'.
+ */
+export async function submitProof(orgId: string, s: DeliveryStop, code: string, name: string, me: Profile): Promise<'ok' | 'wrong' | 'no-tries' | 'no-code'> {
+  if (!s.codeGen) return 'no-code';
+  const key = `aria.try.${s.tripId}.${s.id}.${s.codeGen}`;
+  let n = 1;
+  try { n = Math.max(1, Number(localStorage.getItem(key) || '1')); } catch { /* start at 1 */ }
+  for (; n <= 5; n++) {
+    try {
+      await setDoc(doc(stopRef(orgId, s), 'tries', `${s.codeGen}_${n}`), { gen: s.codeGen, n, code, by: me.uid, at: serverTimestamp() });
+      break;
+    } catch (e: any) {
+      if (!String(e?.code).includes('permission-denied')) throw e; // offline or other: let the caller say so
+    }
+  }
+  try { localStorage.setItem(key, String(n + 1)); } catch { /* counted on the server anyway */ }
+  if (n > 5) return 'no-tries';
+  try {
+    await stepStop(orgId, s, { state: 'submitted', claim: { name, gen: s.codeGen, n } }, 'proof', me);
+    return 'ok';
+  } catch (e: any) {
+    if (String(e?.code).includes('permission-denied')) return n >= 5 ? 'no-tries' : 'wrong';
+    throw e;
+  }
+}
+
+/** Admin review of a submitted delivery. A confirmation also ticks the stop on the trip, and finishes the trip when all are in. */
+export async function reviewStop(orgId: string, t: Trip, s: DeliveryStop, ok: boolean, reason: string, me: Profile, all: DeliveryStop[]) {
+  await stepStop(orgId, s, { state: ok ? 'delivered' : 'rejected', review: { by: me.uid, decision: ok ? 'confirmed' : 'rejected', reason } }, ok ? 'confirmed' : 'rejected', me, reason || undefined);
+  if (!ok) return;
+  const stops = t.stops.map((x, i) => (i === s.i ? { ...x, delivered: true } : x));
+  const finished = all.every((x) => x.id === s.id || x.state === 'delivered' || x.state === 'cancelled' || x.state === 'failed');
+  await updateDoc(doc(db, 'orgs', orgId, 'trips', t.id), { stops, ...(finished ? { status: 'done' } : {}), updatedAt: serverTimestamp() });
+  if (finished) await clearLive(orgId, t.id, t.driverUid).catch(() => {});
+}
+
+/** Admin: stop a trip. The driver can no longer act on it; every open stop is closed with the reason. */
+export async function cancelTrip(orgId: string, t: Trip, all: DeliveryStop[], reason: string, me: Profile) {
+  await updateDoc(doc(db, 'orgs', orgId, 'trips', t.id), { status: 'cancelled', updatedAt: serverTimestamp() });
+  for (const s of all.filter((x) => OPEN_STATES.includes(x.state))) await stepStop(orgId, s, { state: 'cancelled', review: { by: me.uid, decision: 'cancelled', reason } }, 'cancelled', me, reason);
+  await clearLive(orgId, t.id, t.driverUid).catch(() => {});
+}
+
+/** Admin: give a trip to another driver. The old driver loses access to it at once. */
+export async function reassignTrip(orgId: string, t: Trip, all: DeliveryStop[], to: Profile, me: Profile) {
+  await updateDoc(doc(db, 'orgs', orgId, 'trips', t.id), { driverUid: to.uid, driverName: to.name, updatedAt: serverTimestamp() });
+  for (const s of all.filter((x) => OPEN_STATES.includes(x.state))) await stepStop(orgId, s, { driverUid: to.uid }, 'reassigned', me, `Given to ${to.name}`);
+  await clearLive(orgId, t.id, t.driverUid).catch(() => {});
+}
+
+/** Admin: set the delivery point of a stop before the driver sets off. */
+export const setStopPoint = (orgId: string, s: DeliveryStop, lat: number, lon: number, me: Profile) =>
+  stepStop(orgId, s, { lat, lon, mlon: metresPerDegLon(lat) }, 'point', me, `${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+
+export const setPolicy = (orgId: string, geo: Policy) => updateDoc(doc(db, 'orgs', orgId), { geo });
+
+/** Remove a trip with everything under it. */
+export async function deleteTrip(orgId: string, id: string) {
+  const tripRef = doc(db, 'orgs', orgId, 'trips', id);
+  for (const s of (await getDocs(collection(tripRef, 'stops'))).docs) {
+    for (const sub of ['events', 'code', 'tries']) for (const d of (await getDocs(collection(s.ref, sub))).docs) await deleteDoc(d.ref);
+    await deleteDoc(s.ref);
+  }
+  for (const d of (await getDocs(collection(tripRef, 'live'))).docs) await deleteDoc(d.ref);
+  await deleteDoc(tripRef);
+}
 
 // ---------- reports from drivers ----------
 export const sendReport = (orgId: string, r: Omit<Report, 'id' | 'createdAt'>) =>

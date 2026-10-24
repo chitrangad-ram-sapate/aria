@@ -8,6 +8,19 @@ service cloud.firestore {
     function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdminOf(orgId) { return signedIn() && me().role == 'admin' && me().orgId == orgId; }
     function activeMemberOf(orgId) { return signedIn() && me().orgId == orgId && me().active == true; }
+    // A position from the phone: real coordinates, a reported accuracy, a time in ms.
+    function validFix(p) {
+      return p.lat is number && p.lon is number && p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180
+        && !(p.lat == 0 && p.lon == 0) && p.acc_m is number && p.acc_m >= 0 && p.fix_at is int;
+    }
+    // Arrival rules an admin may set: radius 20-1000 m, accuracy 5-200 m, age 5-300 s, 1-5 readings.
+    function validPolicy(g) {
+      return g.keys().hasOnly(['radius_m', 'max_accuracy_m', 'max_age_s', 'readings'])
+        && g.radius_m is number && g.radius_m >= 20 && g.radius_m <= 1000
+        && g.max_accuracy_m is number && g.max_accuracy_m >= 5 && g.max_accuracy_m <= 200
+        && g.max_age_s is number && g.max_age_s >= 5 && g.max_age_s <= 300
+        && g.readings is int && g.readings >= 1 && g.readings <= 5;
+    }
 
     match /joinCodes/{code} {
       allow get: if true; // looked up before a driver's account exists; codes cannot be listed
@@ -32,16 +45,138 @@ service cloud.firestore {
       allow read: if signedIn() && me().orgId == orgId;
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
       allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'geo'])
+        && (!('geo' in request.resource.data) || validPolicy(request.resource.data.geo));
+
+      // ---------- trips: one per depot load. Drivers may only mark their trip loaded (GeoProof, D-045). ----------
+      function trip(orgId, tripId) { return get(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)).data; }
+      function eligibleDriver(orgId, uid) {
+        let u = get(/databases/$(database)/documents/users/$(uid)).data;
+        return u.orgId == orgId && u.role == 'driver' && u.active == true;
+      }
 
       match /trips/{tripId} {
         allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
-        allow create: if isAdminOf(orgId)
-          && get(/databases/$(database)/documents/users/$(request.resource.data.driverUid)).data.orgId == orgId;
+        allow create: if isAdminOf(orgId) && eligibleDriver(orgId, request.resource.data.driverUid)
+          && request.resource.data.status == 'assigned';
         allow delete: if isAdminOf(orgId);
-        allow update: if isAdminOf(orgId)
-          || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'stops', 'updatedAt']));
+        allow update: if (isAdminOf(orgId)
+            && (request.resource.data.driverUid == resource.data.driverUid || eligibleDriver(orgId, request.resource.data.driverUid)))
+          || (activeMemberOf(orgId) && me().role == 'driver' && resource.data.driverUid == request.auth.uid
+            && resource.data.status == 'assigned' && request.resource.data.status == 'loaded'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']));
+
+        // Latest position of the driver on an active trip: one document, overwritten, removed when tracking ends.
+        match /live/{uid} {
+          allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && uid == request.auth.uid);
+          allow create, update: if activeMemberOf(orgId) && uid == request.auth.uid
+            && trip(orgId, tripId).driverUid == uid && trip(orgId, tripId).status == 'loaded'
+            && request.resource.data.keys().hasOnly(['lat', 'lon', 'acc_m', 'fix_at', 'at', 'stop'])
+            && validFix(request.resource.data) && request.resource.data.at == request.time;
+          allow delete: if isAdminOf(orgId) || (signedIn() && uid == request.auth.uid);
+        }
+
+        // One delivery stop: approved destination, arrival rules, state, and a counter tying each change to an event.
+        match /stops/{stopId} {
+          function stopPath() { return /databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)/stops/$(stopId); }
+          function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+          function stepped() {
+            return request.resource.data.seq == resource.data.seq + 1 && request.resource.data.updatedAt == request.time
+              && existsAfter(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)/stops/$(stopId)/events/$(string(request.resource.data.seq)));
+          }
+          function moves(a, b) { return resource.data.state in a && request.resource.data.state == b; }
+          function insideFence(p, s) {
+            let dy = (p.lat - s.lat) * 110574.0;
+            let dx = (p.lon - s.lon) * s.mlon;
+            return dx * dx + dy * dy <= s.policy.radius_m * s.policy.radius_m;
+          }
+          function arrivalOk(s, a) {
+            return a.keys().hasOnly(['lat', 'lon', 'acc_m', 'fix_at', 'dist_m', 'readings']) && validFix(a)
+              && s.lat is number && a.acc_m <= s.policy.max_accuracy_m && a.readings is int && a.readings >= s.policy.readings
+              && request.time.toMillis() - a.fix_at <= s.policy.max_age_s * 1000 + 60000 // + a minute for phone clock drift
+              && a.fix_at <= request.time.toMillis() + 60000
+              && insideFence(a, s);
+          }
+          function codeOk(s, c) {
+            let code = get(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)/stops/$(stopId)/code/$(string(c.gen))).data;
+            let attempt = get(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)/stops/$(stopId)/tries/$(string(c.gen) + '_' + string(c.n))).data;
+            return c.gen == s.codeGen && attempt.by == request.auth.uid && request.time < code.expiresAt
+              && hashing.sha256(code.salt + ':' + attempt.code).toHexString().lower() == code.hash;
+          }
+          function claimOk(s, c) {
+            return c.keys().hasOnly(['name', 'gen', 'n']) && c.name is string && c.name.size() >= 2 && c.name.size() <= 60
+              && c.gen is int && c.n is int && codeOk(s, c);
+          }
+          function driverStep() {
+            let t = trip(orgId, tripId);
+            let s = request.resource.data;
+            return activeMemberOf(orgId) && me().role == 'driver' && resource.data.driverUid == request.auth.uid
+              && t.driverUid == request.auth.uid && t.status == 'loaded' && stepped() && (
+                (moves(['assigned', 'rejected'], 'in_transit') && changed().hasOnly(['state', 'seq', 'updatedAt', 'startedAt']))
+                || (moves(['in_transit'], 'arrived') && changed().hasOnly(['state', 'seq', 'updatedAt', 'arrival']) && arrivalOk(s, s.arrival))
+                || (moves(['arrived'], 'submitted') && changed().hasOnly(['state', 'seq', 'updatedAt', 'claim']) && claimOk(s, s.claim))
+                || (moves(['in_transit', 'arrived'], 'failed') && changed().hasOnly(['state', 'seq', 'updatedAt', 'failReason'])
+                  && s.failReason is string && s.failReason.size() >= 3 && s.failReason.size() <= 300));
+          }
+          function reviewOk(r, needReason) {
+            return r.keys().hasOnly(['by', 'decision', 'reason']) && r.by == request.auth.uid && r.reason is string && r.reason.size() <= 300
+              && (!needReason || r.reason.size() >= 3);
+          }
+          function adminStep() {
+            let s = request.resource.data;
+            let open = ['assigned', 'in_transit', 'arrived', 'submitted', 'rejected', 'failed'];
+            return isAdminOf(orgId) && stepped() && (
+                (moves(['submitted'], 'delivered') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, false))
+                || (moves(['submitted'], 'rejected') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, true))
+                || (moves(open, 'cancelled') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, true))
+                // set the delivery point before the driver sets off
+                || (moves(['assigned'], 'assigned') && changed().hasOnly(['lat', 'lon', 'mlon', 'seq', 'updatedAt'])
+                  && validFix({'lat': s.lat, 'lon': s.lon, 'acc_m': 0, 'fix_at': 0}) && s.mlon is number && s.mlon > 0 && s.mlon < 111321)
+                // a new recipient code, or the stop given to the trip's new driver
+                || (resource.data.state in open && s.state == resource.data.state && changed().hasOnly(['codeGen', 'seq', 'updatedAt'])
+                  && s.codeGen == resource.data.codeGen + 1)
+                || (resource.data.state in open && s.state == resource.data.state && changed().hasOnly(['driverUid', 'seq', 'updatedAt'])
+                  && s.driverUid == trip(orgId, tripId).driverUid));
+          }
+
+          allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
+          allow create: if isAdminOf(orgId) && request.resource.data.state == 'assigned' && request.resource.data.seq == 0
+            && request.resource.data.codeGen == 0 && validPolicy(request.resource.data.policy)
+            && request.resource.data.driverUid == getAfter(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)).data.driverUid
+            && (request.resource.data.lat == null || (request.resource.data.mlon is number && request.resource.data.mlon > 0));
+          allow update: if driverStep() || adminStep();
+          allow delete: if isAdminOf(orgId);
+
+          // Every change of a stop, in order. Written together with the change; never edited.
+          match /events/{eventId} {
+            allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && get(stopPath()).data.driverUid == request.auth.uid);
+            allow create: if signedIn() && (isAdminOf(orgId) || (activeMemberOf(orgId) && get(stopPath()).data.driverUid == request.auth.uid))
+              && request.resource.data.keys().hasOnly(['seq', 'state', 'kind', 'by', 'name', 'role', 'at', 'note'])
+              && request.resource.data.seq == int(eventId) && getAfter(stopPath()).data.seq == int(eventId)
+              && request.resource.data.state == getAfter(stopPath()).data.state
+              && request.resource.data.by == request.auth.uid && request.resource.data.role == me().role
+              && request.resource.data.at == request.time;
+            allow delete: if isAdminOf(orgId);
+          }
+          // The recipient code: only its salted hash, readable by the admin alone. Drivers never see it.
+          match /code/{gen} {
+            allow read, create: if isAdminOf(orgId);
+            allow delete: if isAdminOf(orgId);
+          }
+          // Code tries by the driver: at most 5 per code, in order. The admin can see them.
+          match /tries/{tryId} {
+            allow read, delete: if isAdminOf(orgId);
+            allow create: if activeMemberOf(orgId) && get(stopPath()).data.driverUid == request.auth.uid
+              && get(stopPath()).data.state == 'arrived' && trip(orgId, tripId).status == 'loaded'
+              && request.resource.data.keys().hasOnly(['gen', 'n', 'code', 'by', 'at'])
+              && request.resource.data.gen == get(stopPath()).data.codeGen && request.resource.data.n is int
+              && request.resource.data.n >= 1 && request.resource.data.n <= 5
+              && tryId == string(request.resource.data.gen) + '_' + string(request.resource.data.n)
+              && (request.resource.data.n == 1 || exists(/databases/$(database)/documents/orgs/$(orgId)/trips/$(tripId)/stops/$(stopId)/tries/$(string(request.resource.data.gen) + '_' + string(request.resource.data.n - 1))))
+              && request.resource.data.code is string && request.resource.data.code.matches('[0-9]{6}')
+              && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time;
+          }
+        }
       }
 
       match /files/{fileId} {
