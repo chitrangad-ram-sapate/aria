@@ -5,7 +5,9 @@ import { engine } from '../engine';
 import { SVCR_MIME, shareFile } from '../native';
 import { forecastLabel, isStale, loadCsvText, loadSample, nextRid, notify, persist, rerender, scheduleValidate, state } from '../state';
 import { errorText, sendPlanFile } from '../cloud';
+import { lockPlan } from '../seal';
 import { networkDiagram } from './network';
+import { scanSheet } from './scan';
 import { issueText, noteGroups, sampleName } from '../plain';
 import { Json, badge, bandBar, errorBox, fmt, h, icon, kv, mount, num, openSheet, pagedTable, rupees, segmented, select, table, toast } from '../ui';
 
@@ -224,7 +226,9 @@ function drawStatus() {
     !state.validating && issues(r),
     h('button', { class: 'btn primary block', disabled: !valid || state.planBusy, onclick: planTonight },
       state.planBusy ? 'Planning on this phone...' : ['Plan tonight', icon('arrow')]),
-    h('button', { class: 'btn block', onclick: stockSheet }, icon('edit'), 'Edit depot stock'),
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn', onclick: scanSheet }, icon('scan'), 'Scan labels'),
+      h('button', { class: 'btn', onclick: stockSheet }, icon('edit'), 'Edit stock')),
     state.planError && errorBox(state.planError));
 }
 
@@ -392,7 +396,7 @@ function shareSheet(p: Json, resp: Json) {
     send.disabled = true;
     send.textContent = 'Sending...';
     try {
-      const bytes = await engine.exportSvcr(p.plan_id);
+      const bytes = await lockPlan(await engine.exportSvcr(p.plan_id), me!.orgId);
       const depots = new Set((p.allocations as Json[]).map((a) => a.godown_id));
       await sendPlanFile(me!.orgId, drivers.filter((d) => picked.has(d.uid)).map((d) => ({ uid: d.uid, name: d.name })), svcrName(p, resp), bytes,
         { dataset: state.scenarioId, day: state.scenario?.day || new Date().toISOString().slice(0, 10), units: (p.allocations as Json[]).reduce((n, a) => n + a.units, 0), depots: depots.size });
@@ -413,8 +417,9 @@ function shareSheet(p: Json, resp: Json) {
       : h('p', { class: 'note' }, 'No active drivers yet. Share your team code from the Team screen.'),
     h('h3', {}, 'Or share as a file'),
     h('button', { class: 'btn block', onclick: async () => {
-      try { await shareFile(svcrName(p, resp), await engine.exportSvcr(p.plan_id), SVCR_MIME); } catch { toast('Sharing did not work. Please try again.'); }
-    } }, icon('share'), 'Share to WhatsApp, email...'));
+      try { await shareFile(svcrName(p, resp), await lockPlan(await engine.exportSvcr(p.plan_id), me!.orgId), SVCR_MIME); } catch { toast('Sharing did not work. Please try again.'); }
+    } }, icon('share'), 'Share to WhatsApp, email...'),
+    h('p', { class: 'note' }, 'Plan files are locked to your team. Only people signed in to this team can open them, even if the file is forwarded.'));
 }
 
 export async function explainSheet(p: Json, row: Json) {
