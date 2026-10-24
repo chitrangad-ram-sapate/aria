@@ -2,6 +2,8 @@
 // (sha256 of the body, as in aria/svcr.py) in the browser, then shows what goes where. The full safety check
 // (scenario fingerprint + all 8 rules) needs the planner and runs only when the driver asks for it.
 import { engine } from '../engine';
+import { LockedError, unlockPlan } from '../seal';
+import { state } from '../state';
 import { SVCR_MIME, shareFile } from '../native';
 import { Json, badge, h, icon, mount, num } from '../ui';
 import { plainReason } from './plan';
@@ -29,7 +31,14 @@ async function parse(bytes: Uint8Array): Promise<Parsed> {
 export async function showPlanFile(root: HTMLElement, name: string, bytes: Uint8Array, back?: () => void, title = name.replace(/\.svcr$/i, '')) {
   const top = back && h('button', { class: 'btn ghost', onclick: back }, icon('back'), 'Back');
   mount(root, top, h('section', { class: 'card' }, h('p', { class: 'muted' }, 'Opening the plan file...')));
-  const r = await parse(bytes);
+  let plain = bytes;
+  let r: Parsed;
+  try {
+    plain = await unlockPlan(bytes, state.me?.orgId);
+    r = await parse(plain);
+  } catch (e: any) {
+    r = { ok: false, error: e instanceof LockedError ? e.message : 'The file could not be read.' };
+  }
   if (!r.ok) {
     return mount(root, top, h('section', { class: 'card verdict bad', role: 'alert' },
       h('div', { class: 'row between' }, h('h2', {}, title), badge('Do not use', 'bad')),
@@ -48,7 +57,7 @@ export async function showPlanFile(root: HTMLElement, name: string, bytes: Uint8
     mount(check, h('span', { class: 'muted' }, 'Getting the planner ready... (first time takes a few seconds)'));
     try {
       await engine.boot((pct) => { mount(check, h('span', { class: 'muted' }, `Getting the planner ready... ${pct}%`)); });
-      const v = await engine.openSvcr(bytes);
+      const v = await engine.openSvcr(plain);
       check.className = v.ok ? '' : 'failed';
       mount(check, v.ok ? h('span', { class: 'ok-text' }, 'All 8 safety rules pass, and the plan matches the data inside the file')
         : h('span', { class: 'bad-text' }, 'This plan fails the safety check. Do not use it.'));

@@ -1,6 +1,8 @@
 // Records: open .svcr files (file picker, "open with", share-to-app), re-verify them on the device,
 // and show the pick list per godown. Recently opened records are remembered in localStorage.
 import { engine } from '../engine';
+import { LockedError, unlockPlan } from '../seal';
+import { state } from '../state';
 import { Json, badge, h, mount, num } from '../ui';
 import { explainSheet, pickLists, plainReason, townName } from './plan';
 
@@ -26,9 +28,9 @@ export async function openRecord(name: string, bytes: Uint8Array | null, error =
   draw();
   let resp: Json;
   try {
-    resp = bytes ? await engine.openSvcr(bytes) : { ok: false, error };
+    resp = bytes ? await engine.openSvcr(await unlockPlan(bytes, state.me?.orgId)) : { ok: false, error };
   } catch (e: any) {
-    resp = { ok: false, error: e.message };
+    resp = { ok: false, error: e.message, locked: e instanceof LockedError };
   }
   busy = '';
   current = { name, resp };
@@ -67,7 +69,8 @@ function view({ name, resp }: { name: string; resp: Json }) {
   if (!resp.ok) {
     return h('section', { class: 'card verdict bad', role: 'alert' },
       h('div', { class: 'row between' }, h('h2', {}, name || 'Plan file'), badge('Do not use', 'bad')),
-      h('p', {}, h('strong', {}, 'Do not dispatch from this file.'), ' It was changed, damaged, or is not valid for its inputs.'),
+      resp.locked ? h('p', {}, h('strong', {}, resp.error))
+        : h('p', {}, h('strong', {}, 'Do not dispatch from this file.'), ' It was changed, damaged, or is not valid for its inputs.'),
       h('p', { class: 'small muted' }, 'Ask the sender to share the plan again.'));
   }
   const p = resp.plan;

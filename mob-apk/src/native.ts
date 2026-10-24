@@ -75,3 +75,27 @@ export function onFileOpened(handler: (name: string, bytes: Uint8Array | null, e
     });
   }
 }
+
+/**
+ * Read one barcode or QR code with the phone camera (Google code scanner on Android, the camera on iOS).
+ * → the code's text, or null when the person closed the scanner. Throws when the phone has no camera access.
+ */
+export async function scanCode(onWait: (msg: string) => void): Promise<string | null> {
+  const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning');
+  if (Capacitor.getPlatform() === 'android') {
+    if (!(await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable()).available) {
+      onWait('Getting the scanner ready (one time only)...');
+      await BarcodeScanner.installGoogleBarcodeScannerModule().catch(() => {}); // fails when already being installed
+      for (let i = 0; i < 90 && !(await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable()).available; i++) await new Promise((r) => setTimeout(r, 1000));
+    }
+  } else if ((await BarcodeScanner.requestPermissions()).camera !== 'granted') {
+    throw new Error('camera-denied');
+  }
+  try {
+    const { barcodes } = await BarcodeScanner.scan();
+    return barcodes[0]?.rawValue ?? null;
+  } catch (e: any) {
+    if (/cancel/i.test(String(e?.message ?? e))) return null;
+    throw e;
+  }
+}

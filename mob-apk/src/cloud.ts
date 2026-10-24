@@ -155,6 +155,19 @@ export const watchReports = (orgId: string, driverUid: string | null, cb: (rs: R
   keep((err) => onSnapshot(query(collection(db, 'orgs', orgId, 'reports'), ...(driverUid ? [where('driverUid', '==', driverUid)] : []), orderBy('createdAt', 'desc')),
     (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }) as Report)), err));
 
+// ---------- the team's key for locked plan files (seal.ts) ----------
+/** The team key (base64). The admin creates it the first time with `make`; drivers can only read it. */
+export async function getTeamKey(orgId: string, make: (() => string) | null): Promise<string | null> {
+  const ref = doc(db, 'orgs', orgId, 'secret', 'key');
+  const snap = await getDoc(ref);
+  if (snap.exists()) return snap.data().k;
+  if (!make) return null;
+  try {
+    await setDoc(ref, { k: make() });
+  } catch { /* another phone made it first: read theirs */ }
+  return (await getDoc(ref)).data()?.k ?? null;
+}
+
 // ---------- plan files (.svcr) sent to drivers ----------
 // A plan file is about 1 MB (it carries the whole dataset); gzip brings it near 120 KB. It is stored in Firestore
 // (Storage is not on the free plan for new projects) in pieces under the 1 MiB document limit.

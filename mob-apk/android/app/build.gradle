@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 
 android {
+    buildFeatures {
+        dataBinding true
+    }
     namespace "app.aria.planner"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {

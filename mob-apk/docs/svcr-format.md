@@ -10,6 +10,18 @@ ARIA's file format for moving a dispatch plan between devices with no server: fr
 | Encoding | UTF-8 text |
 | Implementation | `engine/aria/svcr.py` (`dumps`, `loads`, `SvcrError`) |
 
+## Locked files from the app (D-043)
+
+Plan files shared from the app (sent to drivers or shared to other apps) are wrapped so their contents cannot be read outside the team:
+
+```
+ARIA-LOCKED/1 team=<orgId>
+   header, also used as AES-GCM associated data
+<12-byte IV><AES-256-GCM ciphertext of gzip(.svcr file)>
+```
+
+The key is the team's 32-byte key at `orgs/{orgId}/secret/key`, readable only by active members of that team (`src/seal.ts`). Inside the lock is the unchanged `SVCR/1` file this document describes, and every check still runs after unlocking.
+
 ## Why it exists
 
 1. The plan is made at night by the planner but loaded onto trucks at 6 am by the dispatcher, on a shared device with patchy connectivity.

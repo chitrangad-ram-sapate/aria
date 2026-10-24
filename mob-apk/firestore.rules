@@ -59,6 +59,13 @@ service cloud.firestore {
         }
       }
 
+      // The key that locks plan files: readable by the team only, made once by the admin, never changed.
+      match /secret/{docId} {
+        allow get: if activeMemberOf(orgId);
+        allow create: if isAdminOf(orgId) && docId == 'key'
+          && request.resource.data.keys().hasOnly(['k']) && request.resource.data.k is string && request.resource.data.k.size() == 44;
+      }
+
       match /reports/{reportId} {
         allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
         allow create: if activeMemberOf(orgId) && request.resource.data.driverUid == request.auth.uid;
