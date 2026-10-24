@@ -479,3 +479,40 @@ Engine names, CSV column names and the decision log are unchanged.
   **Run the full safety check** loads the planner on demand and runs the same check as the admin's Files screen (fingerprint of the data plus all 8 safety rules). Drivers can also open a `.svcr` that reached them another way (WhatsApp, email).
 - **Admin's Team screen** lists sent plan files with "Opened" or "Not opened yet", and each can be removed.
 - **Rules:** only an admin of the team sends or removes files, and only to a driver in the team. A driver reads only their own files and can only mark them opened. A paused driver loses access. These cases are added to `scripts/rules-test.mjs` (35 checks).
+
+### D-041 · Logo, glass dock and page motion · Accepted
+**Context:** The team supplied the ARIA logo and asked for an iPhone-style "liquid glass" bottom bar with animated page changes.
+**Decision:**
+- **Logo:** `assets/logo-source.png` is the master. `scripts/make-icons.py` cuts the artwork from its white tile and writes every size:
+  - Android launcher, round and adaptive icons (artwork inside the safe zone);
+  - Android splash screens;
+  - the iOS app icon and splash;
+  - web icons and `public/logo.png`.
+
+  The logo appears on the sign-in and loading screens.
+- **Dock:**
+  - Translucent white glass: blur and saturation, a thin bright edge, a reflection along the top and a soft layered shadow, floating 14 px above the safe area.
+  - It turns slightly more opaque once the page scrolls, and devices without blur get a near-solid fallback.
+  - A blue-tinted pill slides under the active tab with a spring curve (`src/dock.ts`), and the chosen icon gives a small 0.9 → 1.08 → 1 pop.
+  - The centre action keeps its own blue glass: gradient, top highlight, blue shadow, and a press that scales to 0.92 and springs back. It still runs planning once per tap.
+- **Page changes:**
+  - The leaving page is lifted into a fixed layer that fades and slides 22 px away while the new page slides in from the other side (about 320 ms). Direction follows the tab order, and the dock itself never moves.
+  - A second quick tap finishes the previous change at once.
+  - Each tab's scroll position is remembered. Page data lives in app state, so nothing reloads.
+- **Tapping the open tab** glides that page back to the top, or gives a small nudge if it is already at the top, as on iPhone. The window is the scroll container.
+- **Reduced motion:** with "reduce motion" on, nothing slides and the scroll jumps straight to the top.
+- **Files** stays a header icon on the admin side. The admin dock is Home · What if · plan · Results · Team, as set by D-039.
+
+### D-042 · Admin screens without developer notes · Accepted
+**Context:** Some notes on the admin screens explained how the app works inside, for example:
+- "Samples are loaded through the same CSV reader as your own files";
+- "Only classes that cost more per tonne-km are offered";
+- raw error text;
+- forecast method names such as "LightGBM quantile forecast, conformal-calibrated".
+
+A sample name saved on the phone by an older version still read "kolhapur_edge_cases".
+**Decision:**
+- Those notes are removed or reworded.
+- Forecasts are described as "learned from past sales", "based on your last 28 days of sales" or "taken from your file".
+- Errors say what to do next.
+- Saved sample data always shows its plain name, and the downloadable template is named "My data".
