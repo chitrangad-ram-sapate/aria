@@ -1,0 +1,16 @@
+fastapi==0.115.12
+uvicorn==0.34.2
+pydantic==2.11.4
+streamlit==1.45.1
+mlforecast==1.1.0
+lightgbm==4.7.0
+highspy==1.15.1
+duckdb==1.2.2
+pyarrow==20.0.0
+pandas==2.2.3
+numpy==2.2.6
+pyyaml==6.0.2
+utilsforecast==0.2.12
+python-multipart==0.0.20
+httpx==0.28.1
+pytest==8.3.5
