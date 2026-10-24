@@ -176,13 +176,13 @@ function tripSheet(t: Trip) {
         h('button', { class: 'btn', onclick: async () => {
           const d = state.drivers.find((x) => x.uid === to);
           if (!d) return;
-          try { await reassignTrip(me.orgId, t, all, d, me); toast(`Trip given to ${d.name}`); } catch { toast('Could not change the driver. Check the internet connection.'); }
+          try { await reassignTrip(me.orgId, t, state.stops[t.id] ?? [], d, me); toast(`Trip given to ${d.name}`); } catch { toast('Could not change the driver. Check the internet connection.'); }
           (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
         } }, 'Give trip'))],
     open && [h('h3', {}, 'Cancel this trip'), reason,
       h('button', { class: 'btn block danger', onclick: async () => {
         if (reason.value.trim().length < 3) return toast('Write why the trip is cancelled.');
-        try { await cancelTrip(me.orgId, t, all, reason.value.trim().slice(0, 300), me); toast('Trip cancelled'); } catch { toast('Could not cancel. Check the internet connection.'); }
+        try { await cancelTrip(me.orgId, t, state.stops[t.id] ?? [], reason.value.trim().slice(0, 300), me); toast('Trip cancelled'); } catch { toast('Could not cancel. Check the internet connection.'); }
         (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
       } }, 'Cancel trip')],
     h('button', { class: 'btn block danger ghost', onclick: async () => {

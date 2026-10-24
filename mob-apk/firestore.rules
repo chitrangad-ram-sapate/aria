@@ -129,8 +129,9 @@ service cloud.firestore {
                 (moves(['submitted'], 'delivered') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, false))
                 || (moves(['submitted'], 'rejected') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, true))
                 || (moves(open, 'cancelled') && changed().hasOnly(['state', 'seq', 'updatedAt', 'review']) && reviewOk(s.review, true))
-                // set the delivery point before the driver sets off
-                || (moves(['assigned'], 'assigned') && changed().hasOnly(['lat', 'lon', 'mlon', 'seq', 'updatedAt'])
+                // set the delivery point until the driver has arrived (a stop that set off without one can still get it)
+                || (resource.data.state in ['assigned', 'in_transit', 'rejected'] && s.state == resource.data.state
+                  && changed().hasOnly(['lat', 'lon', 'mlon', 'seq', 'updatedAt'])
                   && validFix({'lat': s.lat, 'lon': s.lon, 'acc_m': 0, 'fix_at': 0}) && s.mlon is number && s.mlon > 0 && s.mlon < 111321)
                 // a new recipient code, or the stop given to the trip's new driver
                 || (resource.data.state in open && s.state == resource.data.state && changed().hasOnly(['codeGen', 'seq', 'updatedAt'])

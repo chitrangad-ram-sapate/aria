@@ -187,6 +187,9 @@ await denied('arrival with one reading when two are needed is refused', () => st
 await allowed('driver arrives inside the circle with fresh, precise readings', () => step(d1, T, 0, { state: 'arrived', arrival: fix(20) }));
 await allowed('driver sets off to a stop that has no delivery point', () => step(d1, T, 1, { state: 'in_transit' }));
 await denied('a stop without a delivery point can never pass the arrival check', () => step(d1, T, 1, { state: 'arrived', arrival: fix(0) }));
+await allowed('admin sets the missing point while the driver is on the way', () => step(a1, T, 1, { lat: KOL.lat, lon: KOL.lon, mlon }));
+await denied('admin cannot move the point once the driver arrived', () => step(a1, T, 0, { lat: north(300), lon: KOL.lon, mlon }));
+await denied('admin change with an old change number is refused', () => step(a1, T, 1, { lat: north(5), lon: KOL.lon, mlon }, { seq: T.s[1].seq }));
 await denied('driver hands in proof when no code exists', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi', gen: 0, n: 1 } }));
 await denied('driver makes the recipient code', () => setDoc(doc(stopDoc(d1.db, T.id, '0'), 'code', '1'), { hash: 'x', salt: 'y', expiresAt: Timestamp.fromMillis(Date.now() + 3600e3) }));
 const salt = 'a1b2c3', code = '482913';
@@ -237,7 +240,7 @@ await denied('the old driver can no longer act on it', async () => {
   await updateDoc(tripDoc(d2.db, T2.id), { status: 'loaded', updatedAt: serverTimestamp() });
 });
 await allowed('the new driver starts it', async () => { await updateDoc(tripDoc(d1.db, T2.id), { status: 'loaded', updatedAt: serverTimestamp() }); await step(d1, T2, 0, { state: 'in_transit' }); });
-await denied('admin cannot move the point once the driver set off', () => step(a1, T2, 0, { lat: north(10), lon: KOL.lon, mlon }));
+await allowed('admin moves the point while the driver is on the way', () => step(a1, T2, 0, { lat: north(10), lon: KOL.lon, mlon }));
 await denied('admin cancels without a reason', () => step(a1, T2, 0, { state: 'cancelled', review: { by: a1.uid, decision: 'cancelled', reason: '' } }));
 await allowed('admin cancels the trip and its stop with a reason', async () => {
   await updateDoc(tripDoc(a1.db, T2.id), { status: 'cancelled' });

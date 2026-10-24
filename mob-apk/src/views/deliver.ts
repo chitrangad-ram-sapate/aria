@@ -141,7 +141,13 @@ export function drawStop(root: HTMLElement, back: () => void) {
   // readings and the clock redraw the page, except while the proof form is open (it would clear what is being typed)
   redraw = () => { if (page && root.isConnected && s.state !== 'arrived') drawStop(root, back); };
   clearInterval(ticker);
-  if (s.state === 'in_transit') ticker = window.setInterval(redraw, 5000); // keeps "x s ago" and old-reading warnings true
+  // keeps "x s ago" and old-reading warnings true, and asks for a fresh reading when the phone has not sent one lately,
+  // so the arrival check does not wait on readings that come in slowly
+  if (s.state === 'in_transit') ticker = window.setInterval(() => {
+    const last = lastFix();
+    if (track.perm === 'granted' && (!last || Date.now() - last.fix_at > Math.min(8_000, s.policy.max_age_s * 500))) readOnce();
+    redraw();
+  }, 5000);
   const all = state.stops[t.id] ?? [];
   const item = t.stops[s.i];
   const c = check(t, s);
