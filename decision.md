@@ -323,3 +323,14 @@ Bills at the headline point, in ₹ lakh: (a) 284.6 · b′ 216.6 · b″ 213.1 
 
 **Response, as pre-registered in PRD §9:** report as measured and use the P1-05 ablations to explain. No pass rule and no data parameter was changed after seeing these results.
 The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails there at own / 3.78 / 6t and passes at 55t. KPI-1c, KPI-3 and KPI-4 pass.
+
+### D-029 · Real-world simulation and human-like testing, worldwide · Accepted
+**Context:** The app must be tested the way people actually use it, under realistic and unbiased conditions, and for any region, not only Kolhapur.
+**Decision:**
+- **World generator (`aria/sim/world.py`):** builds a distributor network anywhere from the GeoNames `cities15000` open dataset (CC BY 4.0). Regions are sampled uniformly over countries first, so populous countries do not dominate. Any user can generate a network for their own region from the CLI.
+- **Real-life conditions (`aria/sim/conditions.py`):** a stratified, seeded catalogue of disruptions and messy inputs (monsoon closures, truck bans, losses, festivals, expiry gluts, Excel/Unicode CSV quirks, invalid entries). Every class gets equal coverage.
+- **Virtual users (`aria/sim/users.py`):** personas from PRD §3 plus a novice and a fat-finger user. They drive the real API and the real Streamlit UI, including double-submits, edits mid-solve, tampered `.svcr` files and monkey sequences.
+- **Invariants:** pre-registered in `aria/sim/INVARIANTS.md` before the first run and never changed after seeing results.
+- **Report:** `reports/sim_report.md` gives a reproducer (seed + steps) for every failure. A fast subset runs in CI.
+
+**Why:** Unit and property tests prove the maths. They do not prove that a tired dispatcher with a bad CSV and 2G connectivity gets a truthful screen. Sampling regions and conditions with fixed seeds and pre-registered invariants keeps the testing honest.
