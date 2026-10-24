@@ -334,3 +334,14 @@ The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails th
 - **Report:** `reports/sim_report.md` gives a reproducer (seed + steps) for every failure. A fast subset runs in CI.
 
 **Why:** Unit and property tests prove the maths. They do not prove that a tired dispatcher with a bad CSV and 2G connectivity gets a truthful screen. Sampling regions and conditions with fixed seeds and pre-registered invariants keeps the testing honest.
+
+### D-030 · Problem-statement compliance features in the app · Accepted
+**Context:** A check of the official Problem Statement 2 text against the app found 5 gaps. The engine covered every requirement, but the app did not *show* them all.
+**Decision:** The mobile app adds:
+1. an **Assumptions** screen (A1–A9, the parameter registry with sources, data sources, limitations), because the statement requires that "All assumptions should be clearly stated";
+2. **visible demand forecasts**, and on-device forecasting for imported CSVs (scikit-learn quantile gradient boosting + split conformal in Pyodide, or labelled empirical quantiles as a fallback; LightGBM stays the batch model);
+3. an **Impact card** on the statement's three goals (stockouts, transportation cost, wastage) versus the rule-based baseline;
+4. an **excess-stock list** next to the shortfall list ("stockouts here, excess there");
+5. **bundled replay results**, so the efficiency proof works offline.
+
+**Why:** These are the statement's own evaluation words. Each one must be visible in the product, not only in the docs.
