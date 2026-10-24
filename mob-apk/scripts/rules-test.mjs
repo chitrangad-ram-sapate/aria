@@ -1,5 +1,5 @@
 // Checks firestore.rules against the emulators by trying what a curious or careless user might try.
-// Covers accounts, trips, reports and plan files.
+// Covers accounts, trips, reports, plan files and the team key that locks plan files.
 // Usage: start the emulators (npx firebase-tools emulators:start --only auth,firestore --project demo-aria), then
 //   node scripts/rules-test.mjs
 import { deleteApp, initializeApp } from 'firebase/app';
@@ -105,10 +105,20 @@ await denied('another driver reads what is inside that plan file', () => getDocs
 await allowed('driver marks the plan file opened', () => updateDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId), { openedAt: serverTimestamp() }));
 await denied('driver changes who the plan file is for', () => updateDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId), { driverUid: d2.uid }));
 await denied('driver changes the plan file contents', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'files', fileId, 'parts', '0'), { i: 0, data: Bytes.fromUint8Array(new Uint8Array([9])) }));
+const keyRef = (db, org) => doc(db, 'orgs', org, 'secret', 'key');
+await denied('driver makes the team key', () => setDoc(keyRef(d1.db, a1.orgId), { k: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }));
+await denied('admin makes a key for another team', () => setDoc(keyRef(a2.db, a1.orgId), { k: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }));
+await denied('admin makes a key that is not 32 bytes', () => setDoc(keyRef(a1.db, a1.orgId), { k: 'short' }));
+await allowed('admin makes the team key once', () => setDoc(keyRef(a1.db, a1.orgId), { k: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }));
+await denied('admin replaces the team key', () => setDoc(keyRef(a1.db, a1.orgId), { k: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=' }));
+await allowed('driver of the team reads the team key', () => getDoc(keyRef(d1.db, a1.orgId)));
+await denied('admin of another team reads the team key', () => getDoc(keyRef(a2.db, a1.orgId)));
+await denied('driver lists the team secrets', () => getDocs(collection(d1.db, 'orgs', a1.orgId, 'secret')));
 await denied('admin of another team pauses a driver', () => updateDoc(doc(a2.db, 'users', d1.uid), { active: false }));
 await allowed('admin pauses their driver', () => updateDoc(doc(a1.db, 'users', d1.uid), { active: false }));
 await denied('driver un-pauses themself', () => updateDoc(doc(d1.db, 'users', d1.uid), { active: true }));
 await denied('paused driver reads their trips', () => getDocs(query(collection(d1.db, 'orgs', a1.orgId, 'trips'), where('driverUid', '==', d1.uid))));
+await denied('paused driver reads the team key', () => getDoc(keyRef(d1.db, a1.orgId)));
 await denied('paused driver sends a report', () => addDoc(collection(d1.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
 await allowed('active driver sends a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d2.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
 await denied('driver sends a report in someone else\'s name', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));

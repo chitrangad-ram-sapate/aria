@@ -184,12 +184,12 @@ try {
 
   // 6. edit stock: Cancel discards, Save applies and marks the plan out of date
   await tab('Home');
-  await page.getByRole('button', { name: 'Edit depot stock' }).click();
+  await page.getByRole('button', { name: 'Edit stock' }).first().click();
   const first = page.locator('ul.lots input').first();
   await first.fill('abc');
   expect(await page.getByRole('button', { name: 'Save stock' }).isDisabled(), 'Save enabled with a bad value');
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await page.getByRole('button', { name: 'Edit depot stock' }).click();
+  await page.getByRole('button', { name: 'Edit stock' }).first().click();
   expect((await page.locator('ul.lots input').first().inputValue()) !== 'abc', 'Cancel did not discard');
   await page.locator('ul.lots input').first().fill('7');
   await page.getByText('Unsaved changes.').waitFor();
@@ -241,13 +241,52 @@ try {
   step('Results shows the scenario comparison and the labelled historical replay for the sample');
   await shot('07-results-sample');
 
-  // 8. .svcr export still works
+  // 7b. scan labels: check each label, refuse what cannot be right, add a batch, plan again and compare
+  await tab('Home');
+  await page.getByRole('button', { name: 'Scan labels' }).click();
+  const sheet = page.locator('dialog.sheet');
+  const typeCode = async (code) => {
+    await sheet.locator('input[aria-label="Label code"]').fill(code);
+    await sheet.getByRole('button', { name: 'Use code' }).click();
+  };
+  const addBtn = sheet.getByRole('button', { name: 'Add to the list' });
+  await typeCode('ARIA1|product=NOT_A_PRODUCT|lot=T-1|qty=5|exp=2016-04-02|depot=G_SHIROLI');
+  await sheet.getByText('which is not in your product list').waitFor();
+  expect(await addBtn.isDisabled(), 'unknown product could be added');
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await typeCode('ARIA1|product=FOODS_3_007|lot=T-2|qty=5|exp=2016-03-20|depot=G_SHIROLI');
+  await sheet.getByText('This lot expired on 2016-03-20').waitFor();
+  expect(await addBtn.isDisabled(), 'expired lot could be added');
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await typeCode('ARIA1|product=FOODS_3_007|lot=SCAN-0001|qty=400|exp=2016-04-06|depot=G_SHIROLI');
+  await addBtn.click();
+  await typeCode('(01)08901234000017(10)SCAN-0002');
+  await sheet.getByText('New product number 8901234000017').waitFor();
+  await sheet.getByText('Enter how many units there are.').waitFor();
+  await sheet.locator('select[aria-label="Product"]').selectOption('FOODS_3_030');
+  await sheet.locator('input[aria-label="Units"]').fill('50');
+  await sheet.locator('input[aria-label="Expiry date"]').fill('2016-04-30');
+  await addBtn.click();
+  await sheet.getByText('Ready to add (2)').waitFor();
+  await sheet.getByRole('button', { name: /Update stock and plan again/ }).click();
+  await sheet.getByText('New plan compared with the one before').waitFor({ timeout: 240_000 });
+  expect(await sheet.locator('table.compare tbody tr').count() >= 5, 'comparison table incomplete');
+  await sheet.getByText('Verified').waitFor();
+  await shot('07b-scan-compare');
+  await sheet.getByRole('button', { name: 'See the new plan' }).click();
+  await page.getByText('Verified').first().waitFor();
+  expect(!(await page.getByText('Out of date').count()), 'plan out of date after scanning');
+  step('scan labels: unknown product and expired lot refused, missing details asked for, 2 lots added, plan redone and compared with the one before');
+
+  // 8. .svcr export: the file is locked, nothing readable inside
   await tab('Home');
   await page.locator('button.tile', { hasText: 'Share plan' }).click();
   await page.getByText('No active drivers yet').waitFor();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Share to WhatsApp/ }).click()]);
   expect(download.suggestedFilename().endsWith('.svcr'), 'no .svcr download');
   const svcrBytes = readFileSync(await download.path());
+  expect(svcrBytes.subarray(0, 13).toString() === 'ARIA-LOCKED/1', 'plan file is not locked');
+  expect(!/scenario|allocations|FOODS_3/.test(svcrBytes.toString('latin1')), 'plan file data readable outside the app');
   await page.keyboard.press('Escape');
   step(`plan file exported: ${download.suggestedFilename()}`);
 
@@ -341,6 +380,11 @@ try {
   await dpage.setInputFiles('#svcr-local', { name: 'changed.svcr', mimeType: 'application/octet-stream', buffer: bad });
   await dpage.getByText('The file was changed or damaged after it was made.').waitFor({ timeout: 30_000 });
   step('a plan file changed by one character is refused on the driver phone');
+  await dpage.getByRole('button', { name: 'Back' }).click();
+  await dpage.setInputFiles('#svcr-local', { name: 'shared.svcr', mimeType: 'application/octet-stream', buffer: svcrBytes });
+  await dpage.getByText('Nothing in the file was changed since it was made').waitFor({ timeout: 30_000 });
+  await dpage.getByRole('button', { name: 'Back' }).click();
+  step('the locked file shared outside the app opens on a driver phone of the same team');
 
   // 13. admin pauses the driver
   await page.locator('.rows li', { hasText: DRIVER.name }).filter({ hasText: 'Active' }).click();
