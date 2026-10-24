@@ -5,7 +5,7 @@ import { currentHash, network, nextRid, state } from '../state';
 import { Json, errorBox, fmt, h, label, mount, num, pagedTable, select, table } from '../ui';
 import { metricsTable, resultHeader } from './plan';
 
-const SHOCKS = ['ROUTE_RESTRICTION', 'ROUTE_CLOSURE', 'INVENTORY_LOSS', 'FESTIVAL_SPIKE'];
+const SHOCKS: [string, string][] = [['ROUTE_RESTRICTION', 'Heavy trucks banned on a route'], ['ROUTE_CLOSURE', 'A route is closed'], ['INVENTORY_LOSS', 'Stock lost at a depot'], ['FESTIVAL_SPIKE', 'Festival demand spike']];
 let shock: Json = null;
 let shockFor = '';
 let root: HTMLElement;
@@ -40,23 +40,25 @@ const key = () => JSON.stringify([currentHash(), payload()]);
 export function render(r: HTMLElement) {
   root = r;
   const sc = state.scenario;
-  if (!sc) return mount(root, h('h1', {}, 'Disruption Lab'), h('p', { class: 'muted' }, 'Loading scenario...'));
+  if (!sc) return mount(root, h('p', { class: 'muted' }, 'Loading...'));
   if (!shock || shockFor !== state.scenarioId) resetShock();
   out = h('div', {});
   const ids = (xs: Json[], k: string) => xs.map((x): [string, string] => [x[k], x[k]]);
   const set = (k: string) => (v: string) => { shock[k] = v; render(root); };
   const t = shock.type;
-  mount(root, h('h1', {}, 'Disruption Lab'),
+  mount(root,
     h('section', { class: 'card' },
+      h('p', { class: 'eyebrow' }, 'Something went wrong on the road or in a depot?'),
+      h('p', { class: 'small muted' }, 'Pick what happened. ARIA re-plans on this phone and shows exactly what changes.'),
       h('div', { class: 'grid2' },
-        h('label', {}, 'Shock', select(SHOCKS.map((s): [string, string] => [s, s.replace(/_/g, ' ').toLowerCase()]), t, set('type'), 'Shock type')),
-        t !== 'FESTIVAL_SPIKE' && h('label', {}, 'Godown', select(ids(sc.godowns, 'godown_id'), shock.godown_id, set('godown_id'), 'Godown')),
-        t !== 'INVENTORY_LOSS' && h('label', {}, 'Town', select(ids(sc.towns, 'town_id'), shock.town_id, set('town_id'), 'Town')),
-        t === 'ROUTE_RESTRICTION' && h('label', {}, 'Max vehicle', select([['6t', '6 t']], shock.max_vehicle, set('max_vehicle'), 'Maximum vehicle')),
+        h('label', {}, 'What happened', select(SHOCKS, t, set('type'), 'What happened')),
+        t !== 'FESTIVAL_SPIKE' && h('label', {}, 'Depot', select(sc.godowns.map((g: Json): [string, string] => [g.godown_id, g.name || g.godown_id]), shock.godown_id, set('godown_id'), 'Depot')),
+        t !== 'INVENTORY_LOSS' && h('label', {}, 'Town', select(sc.towns.map((x: Json): [string, string] => [x.town_id, x.name || x.town_id]), shock.town_id, set('town_id'), 'Town')),
+        t === 'ROUTE_RESTRICTION' && h('label', {}, 'Largest truck allowed', select([['6t', '6 tonne']], shock.max_vehicle, set('max_vehicle'), 'Largest truck allowed')),
         (t === 'INVENTORY_LOSS' || t === 'FESTIVAL_SPIKE') && h('label', {}, 'Product', select([['*', 'All products'], ...ids(sc.products, 'product_id')], shock.product_id, set('product_id'), 'Product')),
         (t === 'INVENTORY_LOSS' || t === 'FESTIVAL_SPIKE') && h('label', {}, `Percent: ${shock.pct}%`,
           h('input', { type: 'range', min: 0, max: 100, value: shock.pct, 'aria-label': 'Percent', onchange: (e: Event) => { shock.pct = Number((e.target as HTMLInputElement).value); render(root); } }))),
-      h('button', { class: 'btn primary block', disabled: state.whatifBusy || !state.report?.valid || state.validating, onclick: run }, state.whatifBusy ? 'Re-planning on device...' : 'Apply shock and re-plan'),
+      h('button', { class: 'btn primary block', disabled: state.whatifBusy || !state.report?.valid || state.validating, onclick: run }, state.whatifBusy ? 'Re-planning on this phone...' : 'See the new plan'),
       state.whatifError && errorBox(state.whatifError)),
     out);
   drawResult();
@@ -98,12 +100,12 @@ function drawResult() {
   const leg = tc.filter((r) => r.godown_id === shown.godown_id && r.town_id === shown.town_id);
   const rows = (leg.length ? leg : tc).slice().sort((a, b) => Math.abs((b.before ?? 0) - (b.after ?? 0)) - Math.abs((a.before ?? 0) - (a.after ?? 0)));
   mount(out, h('section', { class: `card result${stale ? ' stale' : ''}` },
-    h('h2', {}, 'Before vs after'),
+    h('h2', {}, 'What changes'),
     resultHeader(resp, w.rid, stale, [`re-plan ${num(resp.elapsed_ms)} ms`]),
     metricsTable([['ARIA before', before.aria], ['ARIA after', after.aria], ['(a) before', before.baseline_a], ['(a) after', after.baseline_a]]),
-    ['aria', 'baseline_a'].map((n) => diffBlock(n === 'aria' ? 'Diff: ARIA' : 'Diff: baseline (a)', resp.diff?.[n])),
-    h('h3', {}, 'τ* before and after'),
-    rows.length ? [tauChart(rows.slice(0, 30)), h('p', { class: 'muted small' }, 'Units with a service level between the after and before τ* stop shipping on this leg: freight now exceeds what they protect.'),
+    ['aria', 'baseline_a'].map((n) => diffBlock(n === 'aria' ? 'ARIA' : 'Usual method (a)', resp.diff?.[n])),
+    h('h3', {}, 'Service level on the affected route (τ*)'),
+    rows.length ? [tauChart(rows.slice(0, 30)), h('p', { class: 'muted small' }, 'Between the two dots, units stop being worth sending on this route: the freight now costs more than the sale they protect.'),
       pagedTable(rows, [['godown_id', 'Godown'], ['town_id', 'Town'], ['product_id', 'Product'], ['before', 'τ* before'], ['after', 'τ* after'],
         ['freight_before_paise', 'Freight/unit before'], ['freight_after_paise', 'Freight/unit after']], undefined, 20)]
       : h('p', { class: 'muted' }, 'No τ* changes.'),

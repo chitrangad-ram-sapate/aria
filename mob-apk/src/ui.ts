@@ -46,6 +46,25 @@ export function fmt(key: string, v: any): string {
   return String(v);
 }
 
+/** Line icons (Lucide-style paths, 24px grid). Decorative unless the caller gives the button a label. */
+const ICONS: Record<string, string> = {
+  home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  zap: 'M13 2 4 14h7l-1 8 9-12h-7z',
+  swap: 'M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14',
+  chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
+  file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 14l2 2 4-4',
+  help: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01',
+  back: 'M15 18l-6-6 6-6',
+  pin: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  share: 'M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13',
+  edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  upload: 'M12 3v12M7 8l5-5 5 5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3',
+  truck: 'M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+};
+export const icon = (name: string) => h('span', { class: 'ico', 'aria-hidden': 'true', innerHTML: `<svg class="i" viewBox="0 0 24 24"><path d="${ICONS[name]}"/></svg>` });
+
 export const label = (k: string) => k.replace(/_paise$/, '').replace(/_/g, ' ');
 
 export const badge = (text: string, kind: '' | 'ok' | 'bad' | 'warn' = '') => h('span', { class: `badge ${kind}` }, text);
