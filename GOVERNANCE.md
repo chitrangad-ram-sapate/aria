@@ -26,7 +26,7 @@ gh pr create --base dev --fill                         # CODEOWNERS requests the
 
 Flow: owner branch → PR into `dev` (reviewed by the area's code owner) → `dev` → PR into `main` (one approval, green CI).
 
-- The repository is **private**.
+- The repository is **public**. Commits on `main` count on every contributor's profile, and GitHub Actions minutes are unlimited.
 - A personal-account repository cannot give collaborators an admin role. Only the owner can change settings, protection rules or visibility.
 - `.github/CODEOWNERS` maps each area to its owner, and maps the shared contract (`schemas.py`) and docs to the whole team.
 
@@ -70,7 +70,7 @@ On the repository: **Settings → Branches → Add branch ruleset** (or **Add cl
 - Block force pushes and deletions.
 - Leave "Do not allow bypassing" off, so `maintainers` can merge in an emergency during the demo.
 
-On a free personal account, branch protection on **private** repositories is not available. That is one more reason to move to an organization (free organizations have the same limit; GitHub Team or a public repository removes it). Until then, the team agrees to merge only through reviewed pull requests with green CI.
+`main` is protected (pull request required, no force pushes or deletions). Branch protection is free because the repository is public.
 
 ## Members linking their own organizations
 
