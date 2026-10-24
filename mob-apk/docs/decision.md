@@ -359,3 +359,21 @@ The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails th
 Encoded in `.github/CODEOWNERS`.
 
 **Flow:** work for an area goes to an `owner/<area>-<topic>` branch. Its PR is assigned to that area's owner, who reviews it. Each commit's author and committer are both the owner of the area it touches (GitHub noreply address), as agreed by the team. Owners can also commit directly from their own logins (see `GOVERNANCE.md`).
+
+### D-032 · App UI: light card design, plain language, pill navigation · Accepted
+**Context:** The team supplied reference screens: a light inventory app with white cards, big numbers, green status chips, one orange call to action, location lists, and a floating pill nav with a raised blue centre action. The app must be simple for every user, not only analysts.
+**Decision:**
+- **Light theme only.** Background `#f3f4f6`, white cards, text `#111827`, muted `#555c68` (≥ 4.5:1 on both surfaces).
+- **One orange primary action per screen** (`#d9480f`, bold 18.7 px white text: WCAG AA large text). Outlined secondary buttons.
+- **Chips:** green `#15803d`/`#dcfce7` (4.57:1), amber, red.
+- **Navigation:** floating pill with Home · What if · **blue raised centre "Plan tonight"** · Results · Files. "How ARIA decides" (assumptions) sits behind the header help button.
+- **Home:** a "To ship tonight" hero (big units number, Verified chip, depots → towns), freight and shortages, then Pick lists / Share plan / Edit stock tiles.
+- **"Compared with the usual method":** plain "N% lower/higher" chips for the statement's goals.
+- **Lists:** shipments by depot, shortages with plain-language reasons (codes kept in the detail sheet), extra stock.
+- **Technical details** (hashes, solver stages, metrics, τ\*) stay one tap away, never removed.
+- **Default scenario:** the app opens on a typical day ("normal week"), not a stress test.
+
+**Why:** Distributors and dispatchers need the answer (what to load, from where, and is it trustworthy) before the method. The verifier badge, the scenario hash and the comparison against the usual method stay visible, so simplicity costs no transparency.
+**Alternatives rejected:**
+- Dark theme by default: the reference is light, and outdoor godown use favours light.
+- Data tables as the main view: too dense for non-technical users.
