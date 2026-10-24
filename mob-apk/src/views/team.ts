@@ -1,6 +1,6 @@
 // Admin's Team screen: the team code to share, every driver (active or paused, last seen, tonight's progress),
 // sending tonight's plan to drivers (one trip per depot), all trips with delivery progress, and driver reports.
-import { deleteTrip, sendTrips, setDriverActive, when, type Profile, type Stop, type Trip } from '../cloud';
+import { deletePlanFile, deleteTrip, sendTrips, setDriverActive, when, type PlanFile, type Profile, type Stop, type Trip } from '../cloud';
 import { shareText } from '../native';
 import { isStale, state } from '../state';
 import { Json, badge, errorBox, h, icon, kv, mount, num, openSheet, select, toast } from '../ui';
@@ -30,6 +30,7 @@ export function update() {
     sendCard(),
     driversCard(),
     tripsCard(),
+    filesCard(),
     reportsCard());
 }
 
@@ -152,6 +153,25 @@ function tripSheet(t: Trip) {
       try { await deleteTrip(state.me!.orgId, t.id); toast('Trip removed'); } catch { toast('Could not remove the trip.'); }
       (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
     } }, 'Remove this trip'));
+}
+
+function filesCard() {
+  const fs = state.files.slice(0, 30);
+  return [h('div', { class: 'section-head' }, h('h2', {}, 'Plan files sent', h('span', { class: 'count' }, num(state.files.length)))),
+    fs.length ? h('ul', { class: 'rows' }, fs.map((f) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => fileSheet(f) },
+      h('div', { class: 'row-main' }, h('strong', {}, `${f.driverName} · ${f.dataset || f.name}`), h('span', {}, `${f.day} · ${num(f.units)} units · sent ${when(f.createdAt)}`)),
+      f.openedAt ? badge('Opened', 'ok') : badge('Not opened yet', ''))))
+      : h('section', { class: 'card' }, h('p', { class: 'small' }, 'No plan files sent yet. Use Share plan on Home after planning.'))];
+}
+
+function fileSheet(f: PlanFile) {
+  openSheet(`Plan file for ${f.driverName}`,
+    kv([['File', f.name], ['Data', f.dataset], ['Day', f.day], ['Units', num(f.units)], ['Sent', when(f.createdAt)], ['Opened', f.openedAt ? when(f.openedAt) : 'Not yet']]),
+    h('button', { class: 'btn block danger', onclick: async () => {
+      if (!confirm(`Remove this plan file from ${f.driverName}'s phone?`)) return;
+      try { await deletePlanFile(state.me!.orgId, f); toast('Plan file removed'); } catch { toast('Could not remove the file.'); }
+      (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
+    } }, 'Remove this file'));
 }
 
 function reportsCard() {

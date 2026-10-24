@@ -1,28 +1,32 @@
 // Driver screens: My trips (load, deliver stop by stop, share the pick list) and Report a problem.
 // Drivers see only trips their admin sent them; they cannot change data or plans.
-import { sendReport, updateTrip, when, type Trip } from '../cloud';
+import { errorText, loadPlanFile, markOpened, sendReport, updateTrip, when, type PlanFile, type Trip } from '../cloud';
 import { shareFile } from '../native';
 import { state } from '../state';
 import { badge, h, icon, mount, num, openSheet, select, toast } from '../ui';
+import { showPlanFile } from './planfile';
 
 let tripsRoot: HTMLElement | null = null;
 let reportRoot: HTMLElement | null = null;
+let filesRoot: HTMLElement | null = null;
+let viewing = false; // a plan file is open: list updates must not replace it
 
 export function renderTrips(r: HTMLElement) {
   tripsRoot = r;
-  reportRoot = null;
+  reportRoot = filesRoot = null;
   drawTrips();
 }
 
 export function renderReport(r: HTMLElement) {
   reportRoot = r;
-  tripsRoot = null;
+  tripsRoot = filesRoot = null;
   drawReport();
 }
 
 export function update() {
   if (tripsRoot) drawTrips();
   if (reportRoot) drawReport();
+  if (filesRoot && !viewing) drawFiles();
 }
 
 const delivered = (t: Trip) => t.stops.filter((s) => s.delivered).length;
@@ -112,4 +116,52 @@ function drawReport() {
     h('div', { class: 'section-head' }, h('h2', {}, 'Sent before')),
     mine.length ? h('ul', { class: 'rows' }, mine.map((r) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, r.kind), h('span', {}, r.note || 'No details')), h('span', { class: 'small muted' }, when(r.createdAt)))))
       : h('p', { class: 'note' }, 'Nothing sent yet.'));
+}
+
+// ---------- plan files from the admin ----------
+export function renderFiles(r: HTMLElement) {
+  filesRoot = r;
+  tripsRoot = reportRoot = null;
+  viewing = false;
+  drawFiles();
+}
+
+/** A plan file opened from another app (WhatsApp, email, files). */
+export function openLocalFile(r: HTMLElement, name: string, bytes: Uint8Array) {
+  filesRoot = r;
+  tripsRoot = reportRoot = null;
+  viewing = true;
+  showPlanFile(r, name, bytes, () => { viewing = false; drawFiles(); });
+}
+
+function drawFiles() {
+  const fs = state.files;
+  const input = h('input', { type: 'file', accept: '.svcr,application/vnd.aria.svcr+json', class: 'visually-hidden', id: 'svcr-local',
+    onchange: async (e: Event) => {
+      const f = (e.target as HTMLInputElement).files?.[0];
+      if (f) openLocalFile(filesRoot!, f.name, new Uint8Array(await f.arrayBuffer()));
+    } });
+  mount(filesRoot!,
+    h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'Plan files'),
+      h('p', { class: 'small' }, 'Plans your admin sends you appear here. Tap one to see what goes where.'),
+      input, h('label', { for: 'svcr-local', class: 'btn block', role: 'button', tabIndex: 0 }, icon('file'), 'Open a plan file from this phone')),
+    fs.length ? h('ul', { class: 'rows' }, fs.map((f) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => openSent(f), onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') openSent(f); } },
+      h('div', { class: 'row-main' }, h('strong', {}, f.dataset || f.name), h('span', {}, `${f.day} · ${num(f.units)} units · ${f.depots} depot${f.depots > 1 ? 's' : ''} · sent ${when(f.createdAt)}`)),
+      f.openedAt ? badge('Opened', '') : badge('New', 'ok'))))
+      : h('section', { class: 'card' }, h('p', { class: 'small' }, 'No plan files yet.')));
+}
+
+async function openSent(f: PlanFile) {
+  const root = filesRoot!;
+  viewing = true;
+  mount(root, h('section', { class: 'card' }, h('p', { class: 'muted' }, 'Downloading the plan file...')));
+  try {
+    const bytes = await loadPlanFile(state.me!.orgId, f);
+    if (!f.openedAt) markOpened(state.me!.orgId, f.id).catch(() => {});
+    await showPlanFile(root, f.name, bytes, () => { viewing = false; drawFiles(); }, f.dataset || undefined);
+  } catch (e) {
+    viewing = false;
+    drawFiles();
+    toast(errorText(e));
+  }
 }

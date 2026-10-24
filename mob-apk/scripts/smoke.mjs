@@ -7,7 +7,7 @@
 // Accounts live in the Firebase emulators (start them first: npx firebase-tools emulators:start --only auth,firestore
 // --project demo-aria). Screenshots go to a temp folder.
 // Usage: npm run build && npm run smoke   (CHROME_PATH=... to pick a browser; default: installed Chrome)
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
@@ -213,8 +213,12 @@ try {
 
   // 8. .svcr export still works
   await tab('Home');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('button.tile', { hasText: 'Share plan' }).click()]);
+  await page.locator('button.tile', { hasText: 'Share plan' }).click();
+  await page.getByText('No active drivers yet').waitFor();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Share to WhatsApp/ }).click()]);
   expect(download.suggestedFilename().endsWith('.svcr'), 'no .svcr download');
+  const svcrBytes = readFileSync(await download.path());
+  await page.keyboard.press('Escape');
   step(`plan file exported: ${download.suggestedFilename()}`);
 
   // 9. reload restores the dataset
@@ -241,9 +245,9 @@ try {
   await dpage.getByRole('button', { name: 'Join team' }).click();
   await dpage.getByText('No trips right now').waitFor({ timeout: 60_000 });
   const dtabs = await dpage.locator('nav.tabs button.tab').allTextContents();
-  expect(dtabs.join('|') === 'My trips|Report|Account', `driver tabs: ${dtabs}`);
+  expect(dtabs.join('|') === 'My trips|Plans|Report|Account', `driver tabs: ${dtabs}`);
   expect(!(await dpage.locator('button.go').count()) && !(await dpage.getByText('Upload your data').count()), 'driver can reach planning');
-  step(`driver joins with code ${code} (a wrong code is refused) and sees only My trips, Report and Account`);
+  step(`driver joins with code ${code} (a wrong code is refused) and sees only My trips, Plans, Report and Account`);
   await dpage.screenshot({ path: join(out, '08-driver-empty.png'), fullPage: true });
 
   // 11. admin sends trips; the driver works through one
@@ -282,13 +286,39 @@ try {
   step('driver reports a closed road; it appears on the admin Team screen');
   await dpage.screenshot({ path: join(out, '10-driver-report.png'), fullPage: true });
 
-  // 12. admin pauses the driver
+  // 12. admin sends the plan file inside the app; the driver opens and checks it
+  await tab('Home');
+  await page.locator('button.tile', { hasText: 'Share plan' }).click();
+  await page.locator(`input[aria-label="Send to ${DRIVER.name}"]`).check();
+  await page.getByRole('button', { name: 'Send to 1 driver' }).click();
+  await page.getByText('Plan file sent to 1 driver').waitFor({ timeout: 60_000 });
+  await dpage.locator('nav.tabs button.tab', { hasText: 'Plans' }).click();
+  await dpage.locator('.rows li', { hasText: 'Kolhapur: a normal week' }).getByText('New').waitFor({ timeout: 30_000 });
+  await dpage.locator('.rows li', { hasText: 'Kolhapur: a normal week' }).click();
+  await dpage.getByText('Nothing in the file was changed since it was made').waitFor({ timeout: 60_000 });
+  const depotsShown = await dpage.locator('details.card summary strong').count();
+  expect(depotsShown >= 1, 'no depots in the plan file view');
+  await dpage.screenshot({ path: join(out, '11-driver-planfile.png'), fullPage: true });
+  await dpage.getByRole('button', { name: 'Run the full safety check' }).click();
+  await dpage.getByText('All 8 safety rules pass').waitFor({ timeout: 300_000 });
+  step(`admin sends the plan file in the app; the driver opens it (${depotsShown} depots), it is unchanged and passes all 8 safety rules on the driver's phone`);
+  await tab('Team');
+  await page.locator('.rows li', { hasText: `${DRIVER.name} · Kolhapur` }).getByText('Opened').waitFor({ timeout: 30_000 });
+  step('admin sees that the driver opened the plan file');
+  await dpage.getByRole('button', { name: 'Back' }).click();
+  const bad = Buffer.from(svcrBytes);
+  bad[bad.length - 20] = bad[bad.length - 20] === 0x31 ? 0x32 : 0x31; // change one character
+  await dpage.setInputFiles('#svcr-local', { name: 'changed.svcr', mimeType: 'application/octet-stream', buffer: bad });
+  await dpage.getByText('The file was changed or damaged after it was made.').waitFor({ timeout: 30_000 });
+  step('a plan file changed by one character is refused on the driver phone');
+
+  // 13. admin pauses the driver
   await page.locator('.rows li', { hasText: DRIVER.name }).filter({ hasText: 'Active' }).click();
   await page.getByRole('button', { name: 'Pause this driver' }).click();
   await dpage.getByText('Your account is paused').waitFor({ timeout: 30_000 });
   step('admin pauses the driver; the driver is locked out at once');
 
-  // 13. sign out and back in as the admin
+  // 14. sign out and back in as the admin
   await page.locator('header button[aria-label="Account"]').click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await page.getByRole('heading', { name: 'Sign in' }).waitFor({ timeout: 30_000 });
