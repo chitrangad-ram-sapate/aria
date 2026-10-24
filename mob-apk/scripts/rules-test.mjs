@@ -1,13 +1,15 @@
 // Checks firestore.rules against the emulators by trying what a curious or careless user might try.
-// Covers accounts, trips, reports, plan files and the team key that locks plan files.
+// Covers accounts, trips, reports, plan files, the team key that locks plan files, and GeoProof deliveries
+// (delivery stops, arrival checks, recipient codes, admin review, cancel and reassign).
 // Usage: start the emulators (npx firebase-tools emulators:start --only auth,firestore --project demo-aria), then
 //   node scripts/rules-test.mjs
 import { deleteApp, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import {
   addDoc, Bytes, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, getFirestore, query, serverTimestamp,
-  setDoc, updateDoc, where, writeBatch,
+  setDoc, Timestamp, updateDoc, where, writeBatch,
 } from 'firebase/firestore';
+import { createHash } from 'node:crypto';
 
 const run = Date.now().toString(36);
 let n = 0, failed = 0;
@@ -32,13 +34,13 @@ async function admin(label, code) {
   b.set(doc(p.db, 'joinCodes', code), { orgId: org.id, ownerUid: p.uid, team: label });
   b.set(doc(p.db, 'users', p.uid), { name: label, email: 'x', role: 'admin', orgId: org.id, active: true });
   await b.commit();
-  return { ...p, orgId: org.id };
+  return { ...p, orgId: org.id, role: 'admin' };
 }
 
 async function driver(label, code, orgId) {
   const p = await person(label);
   await setDoc(doc(p.db, 'users', p.uid), { name: label, email: 'x', role: 'driver', orgId, joinCode: code, active: true });
-  return { ...p, orgId };
+  return { ...p, orgId, role: 'driver' };
 }
 
 async function allowed(what, fn) {
@@ -114,10 +116,147 @@ await denied('admin replaces the team key', () => setDoc(keyRef(a1.db, a1.orgId)
 await allowed('driver of the team reads the team key', () => getDoc(keyRef(d1.db, a1.orgId)));
 await denied('admin of another team reads the team key', () => getDoc(keyRef(a2.db, a1.orgId)));
 await denied('driver lists the team secrets', () => getDocs(collection(d1.db, 'orgs', a1.orgId, 'secret')));
+// ---------- GeoProof (D-045): trips, delivery stops, arrival, recipient code, review ----------
+const P = { radius_m: 100, max_accuracy_m: 50, max_age_s: 15, readings: 2 };
+const KOL = { lat: 16.705, lon: 74.2433 };
+const mlon = 111320 * Math.cos((KOL.lat * Math.PI) / 180);
+const north = (m) => KOL.lat + m / 110574;
+const tripDoc = (db, id) => doc(db, 'orgs', a1.orgId, 'trips', id);
+const stopDoc = (db, tid, sid) => doc(db, 'orgs', a1.orgId, 'trips', tid, 'stops', sid);
+const stopData = (tid, i, drv, pt) => ({ tripId: tid, i, driverUid: drv, town_id: `T${i}`, town: `Town ${i}`, depot_id: 'G', lat: pt?.lat ?? null, lon: pt?.lon ?? null,
+  mlon: pt ? mlon : null, policy: P, state: 'assigned', seq: 0, codeGen: 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+async function newTrip(drv, points) {
+  const ref = doc(collection(a1.db, 'orgs', a1.orgId, 'trips'));
+  const b = writeBatch(a1.db);
+  b.set(ref, { ...trip, driverUid: drv.uid, driverName: 'x', stops: points.map((_, i) => ({ town_id: `T${i}`, town: `Town ${i}`, units: 1, items: [], delivered: false })) });
+  points.forEach((pt, i) => b.set(doc(ref, 'stops', String(i)), stopData(ref.id, i, drv.uid, pt)));
+  await b.commit();
+  return { id: ref.id, s: points.map(() => ({ seq: 0, state: 'assigned' })) };
+}
+async function step(p, t, i, patch, { event = true, seq, by } = {}) {
+  const cur = t.s[i];
+  const n = seq ?? cur.seq + 1;
+  const b = writeBatch(p.db);
+  b.update(stopDoc(p.db, t.id, String(i)), { ...patch, seq: n, updatedAt: serverTimestamp() });
+  if (event) b.set(doc(stopDoc(p.db, t.id, String(i)), 'events', String(n)), { seq: n, state: patch.state ?? cur.state, kind: 't', by: by ?? p.uid, name: 'x', role: p.role, at: serverTimestamp() });
+  await b.commit();
+  cur.seq = n;
+  if (patch.state) cur.state = patch.state;
+}
+const fix = (m, { acc = 10, ageS = 2, lat } = {}) => ({ lat: lat ?? north(m), lon: KOL.lon, acc_m: acc, fix_at: Date.now() - ageS * 1000, dist_m: m, readings: 2 });
+const sha = (s) => createHash('sha256').update(s).digest('hex');
+
+const anon = (() => {
+  const app = initializeApp({ projectId: 'demo-aria', apiKey: 'demo-key' }, `anon-${run}`);
+  apps.push(app);
+  const db = getFirestore(app);
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  return db;
+})();
+
+let T;
+await allowed('admin sends a trip with its delivery stops to their driver', async () => { T = await newTrip(d1, [KOL, null]); });
+await denied('driver reads delivery stops of another driver', () => getDoc(stopDoc(d2.db, T.id, '0')));
+await denied('signed-out visitor reads a trip or a delivery stop', async () => { await getDoc(tripDoc(anon, T.id)).catch((e) => { throw e; }); });
+await denied('signed-out visitor reads a delivery stop', () => getDoc(stopDoc(anon, T.id, '0')));
+await denied('admin of another team reads the delivery stops', () => getDoc(doc(a2.db, 'orgs', a1.orgId, 'trips', T.id, 'stops', '0')));
+await allowed('driver reads their own delivery stop', () => getDoc(stopDoc(d1.db, T.id, '0')));
+await denied('driver ticks a stop delivered on the trip by hand', () => updateDoc(tripDoc(d1.db, T.id), { stops: [{ town_id: 'T0', town: 'Town 0', units: 1, items: [], delivered: true }] }));
+await denied('driver marks the trip finished', () => updateDoc(tripDoc(d1.db, T.id), { status: 'done' }));
+await denied('driver shares location before the trip starts', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid), { lat: KOL.lat, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '0', at: serverTimestamp() }));
+await denied('driver starts a stop before starting the trip', () => step(d1, T, 0, { state: 'in_transit' }));
+await allowed('driver starts the trip (loaded)', () => updateDoc(tripDoc(d1.db, T.id), { status: 'loaded', updatedAt: serverTimestamp() }));
+await allowed('driver shares location on their active trip', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid), { lat: KOL.lat, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '0', at: serverTimestamp() }));
+await denied('driver shares impossible coordinates', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid), { lat: 120, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '0', at: serverTimestamp() }));
+await denied('another driver shares location on that trip', () => setDoc(doc(d2.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d2.uid), { lat: KOL.lat, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '0', at: serverTimestamp() }));
+await denied('another driver reads where the driver is', () => getDoc(doc(d2.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid)));
+await allowed('admin sees where the driver is', () => getDoc(doc(a1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid)));
+await denied('driver changes a stop without writing its event', () => step(d1, T, 0, { state: 'in_transit' }, { event: false }));
+await denied('driver changes a stop skipping the counter', () => step(d1, T, 0, { state: 'in_transit' }, { seq: 5 }));
+await denied('driver writes an event in someone else\'s name', () => step(d1, T, 0, { state: 'in_transit' }, { by: a1.uid }));
+await allowed('driver sets off to a stop (with its event)', () => step(d1, T, 0, { state: 'in_transit' }));
+await denied('driver moves the delivery point', () => step(d1, T, 0, { lat: north(500) }));
+await denied('driver marks the stop delivered', () => step(d1, T, 0, { state: 'delivered' }));
+await denied('driver hands in proof before arriving', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi', gen: 1, n: 1 } }));
+await denied('driver says "verified" without a location', () => step(d1, T, 0, { state: 'arrived', isVerified: true }));
+await denied('arrival 500 m away is refused', () => step(d1, T, 0, { state: 'arrived', arrival: fix(500) }));
+await denied('arrival with poor accuracy (80 m) is refused', () => step(d1, T, 0, { state: 'arrived', arrival: fix(10, { acc: 80 }) }));
+await denied('arrival from a 10-minute-old reading is refused', () => step(d1, T, 0, { state: 'arrived', arrival: fix(10, { ageS: 600 }) }));
+await denied('arrival with impossible coordinates is refused', () => step(d1, T, 0, { state: 'arrived', arrival: fix(10, { lat: 95 }) }));
+await denied('arrival with one reading when two are needed is refused', () => step(d1, T, 0, { state: 'arrived', arrival: { ...fix(10), readings: 1 } }));
+await allowed('driver arrives inside the circle with fresh, precise readings', () => step(d1, T, 0, { state: 'arrived', arrival: fix(20) }));
+await allowed('driver sets off to a stop that has no delivery point', () => step(d1, T, 1, { state: 'in_transit' }));
+await denied('a stop without a delivery point can never pass the arrival check', () => step(d1, T, 1, { state: 'arrived', arrival: fix(0) }));
+await denied('driver hands in proof when no code exists', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi', gen: 0, n: 1 } }));
+await denied('driver makes the recipient code', () => setDoc(doc(stopDoc(d1.db, T.id, '0'), 'code', '1'), { hash: 'x', salt: 'y', expiresAt: Timestamp.fromMillis(Date.now() + 3600e3) }));
+const salt = 'a1b2c3', code = '482913';
+await allowed('admin makes a recipient code (only its salted hash is stored)', async () => {
+  await setDoc(doc(stopDoc(a1.db, T.id, '0'), 'code', '1'), { hash: sha(`${salt}:${code}`), salt, expiresAt: Timestamp.fromMillis(Date.now() + 3600e3), createdAt: serverTimestamp() });
+  await step(a1, T, 0, { codeGen: 1 });
+});
+await denied('driver reads the recipient code', () => getDoc(doc(stopDoc(d1.db, T.id, '0'), 'code', '1')));
+const tryDoc = (db, n, c) => setDoc(doc(stopDoc(db, T.id, '0'), 'tries', `1_${n}`), { gen: 1, n, code: c, by: d1.uid, at: serverTimestamp() });
+await allowed('driver records a code try (a wrong one)', () => tryDoc(d1.db, 1, '111111'));
+await denied('a wrong code does not hand in the proof', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi', gen: 1, n: 1 } }));
+await denied('code tries cannot skip numbers', () => tryDoc(d1.db, 4, code));
+await denied('more than 5 code tries are refused', () => tryDoc(d1.db, 6, code));
+await denied('a code try cannot be rewritten', () => tryDoc(d1.db, 1, code));
+await denied('driver reads the code tries', () => getDoc(doc(stopDoc(d1.db, T.id, '0'), 'tries', '1_1')));
+await allowed('driver records a second try with the right code', () => tryDoc(d1.db, 2, code));
+await denied('missing recipient name is refused', () => step(d1, T, 0, { state: 'submitted', claim: { name: '', gen: 1, n: 2 } }));
+await allowed('right code hands in the proof (checked by the rules)', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi Patil', gen: 1, n: 2 } }));
+await denied('the same proof handed in twice is refused', () => step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi Patil', gen: 1, n: 2 } }, { seq: T.s[0].seq }));
+await denied('driver confirms their own delivery', () => step(d1, T, 0, { state: 'delivered', review: { by: d1.uid, decision: 'confirmed', reason: '' } }));
+await denied('another driver confirms the delivery', () => step(d2, T, 0, { state: 'delivered', review: { by: d2.uid, decision: 'confirmed', reason: '' } }));
+await denied('admin of another team confirms the delivery', async () => {
+  const b = writeBatch(a2.db);
+  b.update(doc(a2.db, 'orgs', a1.orgId, 'trips', T.id, 'stops', '0'), { state: 'delivered', seq: T.s[0].seq + 1, updatedAt: serverTimestamp(), review: { by: a2.uid, decision: 'confirmed', reason: '' } });
+  await b.commit();
+});
+await denied('admin refuses a delivery without a reason', () => step(a1, T, 0, { state: 'rejected', review: { by: a1.uid, decision: 'rejected', reason: '' } }));
+await allowed('admin refuses a delivery with a reason (recorded)', () => step(a1, T, 0, { state: 'rejected', review: { by: a1.uid, decision: 'rejected', reason: 'Wrong shop' } }));
+await allowed('driver tries the refused delivery again', () => step(d1, T, 0, { state: 'in_transit' }));
+await allowed('driver arrives again', () => step(d1, T, 0, { state: 'arrived', arrival: fix(15) }));
+await allowed('driver hands in the proof again with a new try', async () => { await tryDoc(d1.db, 3, code); await step(d1, T, 0, { state: 'submitted', claim: { name: 'Ravi Patil', gen: 1, n: 3 } }); });
+await allowed('admin confirms the delivery', () => step(a1, T, 0, { state: 'delivered', review: { by: a1.uid, decision: 'confirmed', reason: '' } }));
+await denied('a confirmed delivery cannot be confirmed again', () => step(a1, T, 0, { state: 'delivered', review: { by: a1.uid, decision: 'confirmed', reason: '' } }));
+await denied('a confirmed delivery cannot be cancelled', () => step(a1, T, 0, { state: 'cancelled', review: { by: a1.uid, decision: 'cancelled', reason: 'late' } }));
+await denied('driver edits the delivery history', () => setDoc(doc(stopDoc(d1.db, T.id, '0'), 'events', '1'), { seq: 1, state: 'delivered', kind: 'x', by: d1.uid, name: 'x', role: 'driver', at: serverTimestamp() }));
+await allowed('driver reads the history of their stop', () => getDocs(collection(stopDoc(d1.db, T.id, '0'), 'events')));
+await denied('another driver reads that history', () => getDocs(collection(stopDoc(d2.db, T.id, '0'), 'events')));
+
+let T2;
+await allowed('admin sends a second trip (to driver2)', async () => { T2 = await newTrip(d2, [KOL]); });
+await allowed('admin moves the delivery point before the driver sets off', () => step(a1, T2, 0, { lat: north(30), lon: KOL.lon, mlon }));
+T2.s[0].state = 'assigned';
+await allowed('admin gives the trip to driver1', async () => {
+  await updateDoc(tripDoc(a1.db, T2.id), { driverUid: d1.uid, driverName: 'driver1' });
+  await step(a1, T2, 0, { driverUid: d1.uid });
+});
+await denied('the old driver can no longer act on it', async () => {
+  await updateDoc(tripDoc(d2.db, T2.id), { status: 'loaded', updatedAt: serverTimestamp() });
+});
+await allowed('the new driver starts it', async () => { await updateDoc(tripDoc(d1.db, T2.id), { status: 'loaded', updatedAt: serverTimestamp() }); await step(d1, T2, 0, { state: 'in_transit' }); });
+await denied('admin cannot move the point once the driver set off', () => step(a1, T2, 0, { lat: north(10), lon: KOL.lon, mlon }));
+await denied('admin cancels without a reason', () => step(a1, T2, 0, { state: 'cancelled', review: { by: a1.uid, decision: 'cancelled', reason: '' } }));
+await allowed('admin cancels the trip and its stop with a reason', async () => {
+  await updateDoc(tripDoc(a1.db, T2.id), { status: 'cancelled' });
+  await step(a1, T2, 0, { state: 'cancelled', review: { by: a1.uid, decision: 'cancelled', reason: 'Shop closed today' } });
+});
+await denied('a cancelled delivery cannot be continued', () => step(d1, T2, 0, { state: 'arrived', arrival: fix(5) }));
+await denied('a cancelled trip cannot be restarted by the driver', () => updateDoc(tripDoc(d1.db, T2.id), { status: 'loaded' }));
+await denied('arrival rules outside the allowed range are refused', () => updateDoc(doc(a1.db, 'orgs', a1.orgId), { geo: { ...P, radius_m: 5 } }));
+await allowed('admin sets the arrival rules', () => updateDoc(doc(a1.db, 'orgs', a1.orgId), { geo: { ...P, radius_m: 150 } }));
+await denied('driver changes the arrival rules', () => updateDoc(doc(d1.db, 'orgs', a1.orgId), { geo: P }));
+
 await denied('admin of another team pauses a driver', () => updateDoc(doc(a2.db, 'users', d1.uid), { active: false }));
 await allowed('admin pauses their driver', () => updateDoc(doc(a1.db, 'users', d1.uid), { active: false }));
 await denied('driver un-pauses themself', () => updateDoc(doc(d1.db, 'users', d1.uid), { active: true }));
 await denied('paused driver reads their trips', () => getDocs(query(collection(d1.db, 'orgs', a1.orgId, 'trips'), where('driverUid', '==', d1.uid))));
+await denied('paused driver starts a new trip', () => updateDoc(tripDoc(d1.db, T.id), { status: 'loaded' }));
+await denied('paused driver hands in a delivery step', () => step(d1, T, 1, { state: 'failed', failReason: 'Shop closed' }));
+await denied('paused driver shares location', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid), { lat: KOL.lat, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '1', at: serverTimestamp() }));
+await denied('admin sends a trip to a paused driver', () => newTrip(d1, [KOL]));
 await denied('paused driver reads the team key', () => getDoc(keyRef(d1.db, a1.orgId)));
 await denied('paused driver sends a report', () => addDoc(collection(d1.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
 await allowed('active driver sends a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d2.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
