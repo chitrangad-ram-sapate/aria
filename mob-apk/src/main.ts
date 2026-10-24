@@ -1,5 +1,6 @@
 import './style.css';
-import { watchDrivers, watchFiles, watchProfile, watchReports, watchTeam, watchTrips, logOut, type Profile } from './cloud';
+import { watchDrivers, watchFiles, watchLive, watchProfile, watchReports, watchStops, watchTeam, watchTrips, logOut, type Profile, type Trip } from './cloud';
+import { endTracking } from './views/deliver';
 import { backToTop, changePage, moveIndicator, popIcon, trackDock } from './dock';
 import { engine } from './engine';
 import { isNative, onFileOpened } from './native';
@@ -95,6 +96,8 @@ watchProfile((p, user) => {
   clearTimeout(signupWait);
   if (!user) {
     started = '';
+    dropTripSubs();
+    endTracking();
     header.hidden = true;
     tabs.hidden = true;
     login.render(main);
@@ -112,6 +115,8 @@ watchProfile((p, user) => {
   if (!p.active) {
     started = '';
     stops.splice(0).forEach((s) => s());
+    dropTripSubs();
+    endTracking();
     return screen(h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, p.name), h('h2', {}, 'Your account is paused'),
       h('p', { class: 'small' }, 'Your admin has paused your access. Contact them to be allowed again.'),
       h('button', { class: 'btn block', onclick: async () => { await logOut(); location.reload(); } }, icon('logout'), 'Sign out')));
@@ -119,8 +124,9 @@ watchProfile((p, user) => {
   if (started === p.uid + p.role) return notify(); // profile edits: refresh what is on screen
   started = p.uid + p.role;
   stops.splice(0).forEach((s) => s());
+  dropTripSubs();
   stops.push(watchTeam(p.orgId, (t) => { state.team = t; notify(); }));
-  stops.push(watchTrips(p.orgId, p.role === 'driver' ? p.uid : null, (ts) => { state.trips = ts; notify(); }));
+  stops.push(watchTrips(p.orgId, p.role === 'driver' ? p.uid : null, (ts) => { state.trips = ts; syncTripSubs(p, ts); notify(); }));
   stops.push(watchReports(p.orgId, p.role === 'driver' ? p.uid : null, (rs) => { state.reports = rs; notify(); }));
   stops.push(watchFiles(p.orgId, p.role === 'driver' ? p.uid : null, (fs) => { state.files = fs; notify(); }));
   if (p.role === 'admin') {
@@ -128,6 +134,24 @@ watchProfile((p, user) => {
     startAdmin();
   } else startDriver(p);
 });
+
+// Delivery stops of the latest 30 trips, and (admin) where drivers on the road are. Listeners follow the trip list.
+const tripSubs = new Map<string, () => void>();
+function syncTripSubs(p: Profile, ts: Trip[]) {
+  const want = new Map<string, () => () => void>();
+  for (const t of ts.slice(0, 30)) {
+    want.set(`s:${t.id}`, () => watchStops(p.orgId, t.id, p.role === 'driver' ? p.uid : null, (ss) => { state.stops[t.id] = ss; notify(); }));
+    if (p.role === 'admin' && t.status === 'loaded') want.set(`l:${t.id}`, () => watchLive(p.orgId, t.id, (ls) => { state.live[t.id] = ls; notify(); }));
+  }
+  for (const [k, stop] of tripSubs) if (!want.has(k)) { stop(); tripSubs.delete(k); delete (k[0] === 's' ? state.stops : state.live)[k.slice(2)]; }
+  for (const [k, start] of want) if (!tripSubs.has(k)) tripSubs.set(k, start());
+}
+function dropTripSubs() {
+  tripSubs.forEach((stop) => stop());
+  tripSubs.clear();
+  state.stops = {};
+  state.live = {};
+}
 
 function startDriver(_p: Profile) {
   views = DRIVER;

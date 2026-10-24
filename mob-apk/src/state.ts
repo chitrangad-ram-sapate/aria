@@ -2,7 +2,7 @@
 // increasing request ids, only the latest result is shown, edits mark results STALE.
 import { engine } from './engine';
 import { sampleName } from './plain';
-import type { PlanFile, Profile, Report, Trip } from './cloud';
+import type { DeliveryStop, LiveFix, PlanFile, Policy, Profile, Report, Trip } from './cloud';
 import type { Json } from './ui';
 
 export type Variant = { id: string; name: string; params: Json };
@@ -33,7 +33,9 @@ export const state = {
     sweepBusy: false,
   },
   me: null as Profile | null, // signed-in user
-  team: null as null | { name: string; joinCode: string },
+  team: null as null | { name: string; joinCode: string; geo?: Policy },
+  stops: {} as Record<string, DeliveryStop[]>, // trip id -> its delivery stops
+  live: {} as Record<string, (LiveFix & { uid: string })[]>, // admin: trip id -> latest driver position
   drivers: [] as Profile[], // admin: every driver in the team
   trips: [] as Trip[], // admin: all team trips; driver: their own
   reports: [] as Report[],
