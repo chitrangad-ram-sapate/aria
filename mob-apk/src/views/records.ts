@@ -49,10 +49,11 @@ function draw() {
       if (f) await openRecord(f.name, new Uint8Array(await f.arrayBuffer()));
     } });
   const list = recent();
-  mount(root, h('h1', {}, 'Records'),
+  mount(root,
     h('section', { class: 'card' },
-      h('p', { class: 'muted' }, 'A .svcr file carries a dispatch plan and the exact inputs it was solved on. Opening one checks its digest and scenario_hash and re-runs the independent verifier on this device.'),
-      input, h('label', { for: 'svcr-file', class: 'btn primary block', role: 'button', tabIndex: 0, onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') input.click(); } }, 'Open .svcr'),
+      h('p', { class: 'eyebrow' }, 'Got a plan from someone?'),
+      h('p', { class: 'small' }, 'Open a .svcr plan file. ARIA checks it on this phone before showing anything: nothing altered, inputs match, and the plan is still valid.'),
+      input, h('label', { for: 'svcr-file', class: 'btn primary block', role: 'button', tabIndex: 0, onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') input.click(); } }, 'Open a plan file'),
       busy && h('p', { class: 'muted', 'aria-live': 'polite' }, busy)),
     current && view(current),
     h('section', { class: 'card' }, h('h2', {}, 'Recently opened'),
@@ -66,16 +67,16 @@ function view({ name, resp }: { name: string; resp: Json }) {
   if (!resp.ok) {
     return h('section', { class: 'card verdict bad', role: 'alert' },
       h('div', { class: 'row between' }, h('h2', {}, name || 'Record'), badge('REJECTED', 'bad')),
-      h('p', {}, 'Do not dispatch from this file.'),
+      h('p', {}, h('strong', {}, 'Do not dispatch from this file.'), ' It was changed, damaged, or is not valid for its inputs.'),
       h('pre', { class: 'err' }, resp.error));
   }
   const p = resp.plan;
   return h('section', { class: 'card verdict ok' },
     h('div', { class: 'row between' }, h('h2', {}, name), badge('VERIFIED', 'ok')),
-    h('ul', { class: 'checks' }, h('li', {}, 'Digest matches the body'), h('li', {}, 'scenario_hash matches the inputs'), h('li', {}, 'Verifier V1–V8 passed on this device')),
+    h('ul', { class: 'checks' }, h('li', {}, 'Nothing in the file was altered'), h('li', {}, 'The plan belongs to these exact inputs'), h('li', {}, 'All 8 safety checks passed on this phone')),
     h('div', { class: 'row wrap' }, badge(`scenario_hash ${short(resp.scenario_hash)}`), badge(`network ${resp.network_id}`), badge(`policy ${p.policy}`), badge(`day ${resp.day}`)),
     h('p', { class: 'muted small' }, `Scenario ${resp.scenario_id} · created ${resp.created_at} · ${num(p.allocations.length)} allocation rows`),
-    h('h3', {}, 'Pick list per godown'),
+    h('h3', {}, 'Pick list per depot'),
     pickLists(p.allocations, false, (g) => `picklist_${g}_${String(resp.scenario_hash).slice(0, 8)}.csv`),
     p.shortfalls?.length > 0 && h('details', {}, h('summary', {}, `Shortfalls (${num(p.shortfalls.length)})`),
       h('ul', { class: 'recent' }, p.shortfalls.slice(0, 200).map((s: Json) => h('li', { class: 'tap', tabIndex: 0, onclick: () => explainSheet(p, s) },

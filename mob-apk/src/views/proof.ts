@@ -12,13 +12,13 @@ let seq = 0;
 export async function render(root: HTMLElement) {
   const net = state.networkId;
   if (net !== pointNet) { point = ''; pointNet = net; }
-  mount(root, h('h1', {}, 'Proof'), h('p', { class: 'muted' }, 'Fair replay: one full-cost bill (freight + holding + write-off + lost margin) on realised demand, every policy on the same path.'), h('p', { class: 'muted' }, 'Loading replay...'));
+  mount(root, intro(), h('p', { class: 'muted' }, 'Loading...'));
   const my = ++seq;
   let doc: Json;
   try {
     doc = await engine.replay(net, point || undefined);
   } catch (e: any) {
-    if (my === seq) mount(root, h('h1', {}, 'Proof'), errorBox(e.message));
+    if (my === seq) mount(root, intro(), errorBox(e.message));
     return;
   }
   if (my !== seq) return;
@@ -33,13 +33,13 @@ export async function render(root: HTMLElement) {
     const per = Object.entries(doc.per_policy ?? {}).map(([name, p]: [string, any]) => ({ policy: POLICY[name] ?? name, ...p }));
     body.push(
       h('section', { class: 'card' },
-        h('h2', {}, 'Freight point'),
+        h('h2', {}, 'Freight rate used'),
         segmented(points, point, (v) => { point = v; render(root); }, 'Freight point'),
         h('div', { class: 'row wrap' }, badge(`network ${doc.network}`), badge(`windows ${fmt('w', doc.windows)}`), badge(`products ${doc.products}`), badge('conservation ok', 'ok'))),
-      h('section', { class: 'card' }, h('h2', {}, 'Total bill per policy'),
+      h('section', { class: 'card' }, h('h2', {}, 'Total cost per method'),
         table(per, [['policy', 'Policy'], ['bill_paise', 'Bill'], ['freight', 'Freight', rupees], ['holding', 'Holding', rupees], ['writeoff', 'Write-off', rupees],
           ['lost_margin', 'Lost margin', rupees], ['fill_rate', 'Fill rate'], ['lost_units', 'Lost units'], ['writeoff_units', 'Write-off units']])),
-      h('section', { class: 'card' }, h('h2', {}, 'Pre-registered KPIs'),
+      h('section', { class: 'card' }, h('h2', {}, 'Tests fixed before the results'),
         kpi('KPI-1: ARIA − b″ bill', doc.kpi1, true, 'Headline: upper 95% CI < 0'),
         kpi('KPI-1b: ARIA − b′ bill', doc.kpi1b, true, 'Value of calibrated forecasting'),
         kpi('KPI-1c: ARIA − (a) bill', doc.kpi1c, true, 'Against current practice'),
@@ -50,7 +50,12 @@ export async function render(root: HTMLElement) {
       expose(doc.expose),
     );
   }
-  mount(root, h('h1', {}, 'Proof'), h('p', { class: 'muted' }, 'Fair replay: one full-cost bill (freight + holding + write-off + lost margin) on realised demand, every policy on the same path.'), body);
+  mount(root, intro(), body);
+}
+
+function intro() {
+  return h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'Does ARIA really save money?'),
+    h('p', { class: 'small' }, 'Every method is replayed on the same 8 weeks of real demand, from the same stock, and pays one bill: freight + holding + write-off + lost sales. Lower is better.'));
 }
 
 function kpi(title: string, k: Json, money: boolean, rule: string) {

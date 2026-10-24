@@ -1,5 +1,6 @@
 // Assumptions: A1-A9, limitations, data sources and every parameter with its value, status and source.
 import { engine } from '../engine';
+import { state } from '../state';
 import { Json, errorBox, h, mount, table } from '../ui';
 
 let doc: Json = null;
@@ -8,15 +9,17 @@ const val = (v: any) => (v != null && typeof v === 'object' ? JSON.stringify(v) 
 
 export async function render(root: HTMLElement) {
   if (!doc) {
-    mount(root, h('h1', {}, 'Assumptions'), h('p', { class: 'muted' }, 'Loading...'));
+    mount(root, h('p', { class: 'muted' }, 'Loading...'));
     try {
       doc = await engine.assumptions();
     } catch (e: any) {
-      return mount(root, h('h1', {}, 'Assumptions'), errorBox(e.message));
+      return mount(root, errorBox(e.message));
     }
   }
-  mount(root, h('h1', {}, 'Assumptions'),
-    h('p', { class: 'muted' }, 'Everything ARIA assumes, every parameter it uses and where each number comes from.'),
+  mount(root,
+    h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'How ARIA decides'),
+      h('p', { class: 'small' }, 'For every unit, ARIA asks: is the sale it protects worth more than the freight and the risk of it expiring? Below is everything it assumes, every number it uses and where each comes from.'),
+      state.engineInfo && h('p', { class: 'note' }, `Runs on this phone: ${state.engineInfo}`)),
     h('section', { class: 'card' }, h('h2', {}, 'Assumptions'),
       h('ul', { class: 'list-cards' }, doc.assumptions.map((a: Json) => h('li', {},
         h('strong', {}, `${a.id} `), a.assumption,

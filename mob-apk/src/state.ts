@@ -21,6 +21,7 @@ export const state = {
   whatifBusy: false,
   whatifError: '',
   bundledForecast: 'LightGBM quantile forecast, conformal-calibrated',
+  engineInfo: '', // e.g. "Python 3.12.7 · SciPy HiGHS"
   importInfo: null as Json, // last on-device CSV import into the current scenario
   imported: null as Set<string> | null, // "town|product" pairs whose demand came from that import
 };
