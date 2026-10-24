@@ -1,0 +1,10 @@
+{
+  "name": "ARIA Planner",
+  "short_name": "ARIA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f5c4d",
+  "theme_color": "#0f5c4d",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }],
+  "file_handlers": [{ "action": "/", "accept": { "application/vnd.aria.svcr+json": [".svcr"] } }]
+}

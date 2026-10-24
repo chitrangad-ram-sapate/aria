@@ -1,0 +1,85 @@
+# Assumptions, limitations and data sources shown on the Assumptions screen.
+# Source: ARIA PRD v2.2 §10.2 (assumptions) and §11 (limitations), docs/cyberpunk.pdf pp. 23-24.
+assumptions:
+  - id: A1
+    assumption: "User personas U1-U3 are composites"
+    validation: "On-site conversation"
+    impact: "Details change; the mechanism does not"
+  - id: A2
+    assumption: "One M5 store's daily demand shape per town, scaled to Census 2011 population"
+    validation: "Alternative mapping (P1)"
+    impact: "Absolute rupee figures change; the comparison stays fair"
+  - id: A3
+    assumption: "Daily godown inflow = seasonal-naive network forecast, split equally across godowns, identical for every policy"
+    validation: "Corner check: all inflow at one godown"
+    impact: "Changes how often rationing happens"
+  - id: A4
+    assumption: "Stores enforce a minimum remaining shelf life on receipt (synthetic values)"
+    validation: "On-site conversation"
+    impact: "Eligibility becomes tighter or looser"
+  - id: A5
+    assumption: "Unmet demand is a lost sale"
+    validation: "-"
+    impact: "Over-states lost margin"
+  - id: A6
+    assumption: "Intra-district legs use vehicles of 6 t or less; long legs normally at the road-average rate; freight is linear per unit"
+    validation: "Ask distributors about the truck mix"
+    impact: "Freight per unit shifts; covered by the 3-point freight sweep"
+  - id: A7
+    assumption: "Baseline (a) stands in for current practice"
+    validation: "On-site conversation"
+    impact: "The baseline label changes"
+  - id: A8
+    assumption: "Lot shelf lives are synthetic, within USDA FoodKeeper ranges"
+    validation: "None without real data"
+    impact: "FEFO and write-off results are illustrative"
+  - id: A9
+    assumption: "M5 sell-out stands in for retailer order demand; town-level stock stays the distributor's until sold, so the distributor bears holding cost"
+    validation: "CSV import of real orders (FR-P0-01)"
+    impact: "Holding and lost-sale attribution shift"
+
+limitations:
+  - limitation: "Demand shape comes from M5 (US data); no open Indian daily sales data was found (R27)"
+    effect: "The demand pattern is not the local one"
+    mitigation: "Indian scale, costs, roads and festivals; relative claims only; CSV import; pilot"
+  - limitation: "Synthetic lots and shelf lives"
+    effect: "FEFO and write-off results are illustrative"
+    mitigation: "FoodKeeper ranges; labelled everywhere"
+  - limitation: "Holding cost uses the repo rate (a lower bound)"
+    effect: "τ* is slightly overstated"
+    mitigation: "Direction stated; warehousing cost as a sensitivity"
+  - limitation: "Single period, two echelons, linear freight; no truckloads"
+    effect: "Simpler than real dispatch"
+    mitigation: "Planned extensions P2-02, P2-03"
+  - limitation: "Value ordering can starve small towns"
+    effect: "Equity is not modelled"
+    mitigation: "Planned extension P2-06; town priority weights"
+  - limitation: "Personas are not interview-based"
+    effect: "Pain points may be off"
+    mitigation: "Interviews"
+  - limitation: "On this device, imported CSVs are forecast with scikit-learn gradient boosting (or empirical quantiles), not the desktop LightGBM pipeline"
+    effect: "Imported forecasts can be less sharp than the bundled ones"
+    mitigation: "Method is labelled on every imported forecast"
+
+data_sources:
+  - name: "M5 Forecasting (Walmart daily unit sales), FOODS_3 top 100 items"
+    ref: "R10"
+    use: "Daily demand shape and history for forecasting"
+  - name: "Census of India 2011, town populations"
+    ref: "R16"
+    use: "Scales each town's demand"
+  - name: "NCAER for DPIIT, Logistics Cost in India 2023-24"
+    ref: "R1"
+    use: "Freight per tonne-km: road average, 6 t and 55 t vehicles"
+  - name: "OSRM routing on OpenStreetMap"
+    ref: "R19"
+    use: "Road distances between godowns and towns"
+  - name: "USDA FoodKeeper"
+    ref: "R18"
+    use: "Shelf-life ranges per food category"
+  - name: "Kirana Club distributor margins"
+    ref: "R6"
+    use: "Distributor margin"
+  - name: "RBI repo rate"
+    ref: "R14"
+    use: "Holding cost lower bound"

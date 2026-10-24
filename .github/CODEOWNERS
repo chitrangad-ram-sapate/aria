@@ -1,16 +1,38 @@
 # Default owner (repository owner, master control - decision D-022)
-* @chitrangad-ram-sapate
+*                                   @chitrangad-ram-sapate
 
-# Module ownership. The A-D owner split is not yet mapped to handles, so every module
-# is assigned to the whole team; narrow these lines once roles are confirmed.
-/aria/         @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/aria/engine/  @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/aria/data/    @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/aria/forecast/ @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/aria/verify/  @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/aria/replay/  @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/api/          @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/ui/           @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/data/         @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/tests/        @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
-/.github/      @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
+# A - optimizer & explanations
+/mob-apk/engine/aria/engine/        @chitrangad-ram-sapate
+/mob-apk/engine/tests/test_optimizer.py @chitrangad-ram-sapate
+/mob-apk/engine/tests/test_reasons.py   @chitrangad-ram-sapate
+/mob-apk/engine/tests/test_shocks.py    @chitrangad-ram-sapate
+
+# B - data & forecasting
+/mob-apk/engine/aria/forecast/      @ruturajnalbalwar-arch
+/mob-apk/engine/data/               @ruturajnalbalwar-arch
+
+# C - baselines, verifier & replay
+/mob-apk/engine/aria/engine/baseline_a.py @thevipulbangar
+/mob-apk/engine/aria/verify/        @thevipulbangar
+/mob-apk/engine/aria/metrics.py     @thevipulbangar
+/mob-apk/engine/data/built/         @thevipulbangar
+/mob-apk/engine/tests/test_verifier_mutations.py @thevipulbangar
+/mob-apk/engine/tests/test_metrics.py @thevipulbangar
+
+# D - mobile app, validation, Firebase, demo
+/mob-apk/src/                       @Physics0070
+/mob-apk/android/                   @Physics0070
+/mob-apk/ios/                       @Physics0070
+/mob-apk/scripts/                   @Physics0070
+/mob-apk/engine/bridge.py           @Physics0070
+/mob-apk/engine/aria/validate.py    @Physics0070
+/mob-apk/engine/aria/svcr.py        @Physics0070
+/mob-apk/engine/tests/test_validate.py @Physics0070
+/mob-apk/engine/tests/test_svcr.py  @Physics0070
+/mob-apk/firebase.json              @Physics0070
+/mob-apk/.firebaserc                @Physics0070
+
+# Shared contract and docs - whole team
+/mob-apk/engine/aria/schemas.py     @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
+/mob-apk/docs/                      @chitrangad-ram-sapate @ruturajnalbalwar-arch @thevipulbangar @Physics0070
+/.github/                           @chitrangad-ram-sapate @Physics0070

@@ -1,0 +1,5 @@
+numpy
+scipy
+pydantic>=2
+pyyaml
+pytest
