@@ -1,0 +1,53 @@
+rules_version = '2';
+// Admin: owns one team (orgs/{orgId}), sees and pauses its drivers, sends and removes trips, reads reports.
+// Driver: joins a team with its code, reads and updates only their own trips, sends reports.
+// Nobody can change their own role, team or paused state.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdminOf(orgId) { return signedIn() && me().role == 'admin' && me().orgId == orgId; }
+    function activeMemberOf(orgId) { return signedIn() && me().orgId == orgId && me().active == true; }
+
+    match /joinCodes/{code} {
+      allow get: if true; // looked up before a driver's account exists; codes cannot be listed
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/orgs/$(request.resource.data.orgId)).data.ownerUid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || (resource.data.orgId == me().orgId && me().role == 'admin'));
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.active == true && (
+        (request.resource.data.role == 'admin'
+          && getAfter(/databases/$(database)/documents/orgs/$(request.resource.data.orgId)).data.ownerUid == uid)
+        || (request.resource.data.role == 'driver'
+          && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.orgId == request.resource.data.orgId));
+      allow update: if signedIn() && (
+        (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'vehicle', 'lastSeen']))
+        || (isAdminOf(resource.data.orgId) && resource.data.role == 'driver'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])));
+    }
+
+    match /orgs/{orgId} {
+      allow read: if signedIn() && me().orgId == orgId;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+
+      match /trips/{tripId} {
+        allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
+        allow create: if isAdminOf(orgId)
+          && get(/databases/$(database)/documents/users/$(request.resource.data.driverUid)).data.orgId == orgId;
+        allow delete: if isAdminOf(orgId);
+        allow update: if isAdminOf(orgId)
+          || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'stops', 'updatedAt']));
+      }
+
+      match /reports/{reportId} {
+        allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
+        allow create: if activeMemberOf(orgId) && request.resource.data.driverUid == request.auth.uid;
+      }
+    }
+  }
+}

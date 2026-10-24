@@ -44,6 +44,16 @@ export async function shareFile(name: string, data: Uint8Array | string, mime: s
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
 }
 
+/** Share a short text (a team code) through the share sheet; copies it when sharing is not available. → 'copied' | 'shared'. */
+export async function shareText(title: string, text: string): Promise<'shared' | 'copied'> {
+  if (isNative) { await Share.share({ title, text, dialogTitle: title }); return 'shared'; }
+  if (navigator.share) {
+    try { await navigator.share({ title, text }); return 'shared'; } catch (e: any) { if (e?.name === 'AbortError') return 'shared'; }
+  }
+  await navigator.clipboard?.writeText(text);
+  return 'copied';
+}
+
 /** Calls handler for .svcr files opened from other apps ("open with", share to ARIA). */
 export function onFileOpened(handler: (name: string, bytes: Uint8Array | null, error?: string) => void) {
   const read = async (url: string | undefined) => {

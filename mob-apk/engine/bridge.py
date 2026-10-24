@@ -279,7 +279,7 @@ def compare(scenario_json: str, variants_json: str) -> str:
     if not report["valid"]:
         return _out(report)
     sc = Scenario.model_validate(payload)
-    base = _scenario_result(sc, "Baseline", None)
+    base = _scenario_result(sc, "Today", None)
     shipped = {d["godown_id"]: d["shipped"] for d in base["depots"]}
     out = []
     for v in json.loads(variants_json):

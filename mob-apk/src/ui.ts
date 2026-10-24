@@ -62,6 +62,12 @@ const ICONS: Record<string, string> = {
   arrow: 'M5 12h14M13 6l6 6-6 6',
   upload: 'M12 3v12M7 8l5-5 5 5M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3',
   truck: 'M3 6h11v10H3zM14 9h4l3 3v4h-7M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a7 7 0 0 1 4 7',
+  logout: 'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3',
+  check: 'M20 6 9 17l-5-5',
+  alert: 'M12 3 2 20h20zM12 10v4M12 17.5v.01',
+  phone: 'M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z',
 };
 export const icon = (name: string) => h('span', { class: 'ico', 'aria-hidden': 'true', innerHTML: `<svg class="i" viewBox="0 0 24 24"><path d="${ICONS[name]}"/></svg>` });
 

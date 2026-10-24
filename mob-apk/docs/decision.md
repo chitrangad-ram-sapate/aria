@@ -430,3 +430,36 @@ Badges mark data, calculated output and projections. The bundled replay appears 
 ### D-037 · Stock edits are saved explicitly · Accepted
 **Context:** Edits in "Edit depot stock" applied on every keystroke, with no way to cancel.
 **Decision:** The sheet edits a draft. **Save stock** applies it, re-validates the inputs and stores the dataset on the device; **Cancel** discards it. Save is disabled while any value is not a whole number of 0 or more.
+
+### D-038 · Everyday wording in the app · Accepted
+**Context:** The app showed the words its developers use: sample names like "kolhapur edge cases", input problems as `E_RANGE $.lots[3].remaining_life_days`, "τ*", "stage 1 Optimal", "baseline", "shadow price", "VERIFIED / REJECTED".
+**Decision:**
+- Samples have plain names ("Kolhapur: small example").
+- Input problems name the thing and say what is wrong ("Stock of MILK at North depot has more days left than the product's whole shelf life"). Notes are grouped ("6 routes are closed").
+- What if compares with "today", not "the baseline".
+- The flowchart, the explain sheet, plan files and the past-weeks results use everyday words.
+- Hashes, solver stages and codes are no longer shown.
+
+Engine names, CSV column names and the decision log are unchanged.
+
+### D-039 · Admin and driver accounts · Accepted
+**Context:** The team asked for a login step and two roles: an admin with full control who sees every driver under them, and drivers with minimal control.
+**Decision:**
+- **Firebase Auth** (email and password) and **Firestore**, both on the free Spark plan, in the existing `aria-triwiz` project. Planning stays on the phone (D-025); only people, trips and problem reports are shared. Firestore's offline cache lets drivers mark deliveries without signal; changes sync later.
+- **Admin:** signing up creates a team and a 6-letter code (no 0/O or 1/I/L). The admin keeps everything the app had and gains a **Team** screen:
+  - drivers with their status and when they were last seen;
+  - pause or allow each driver;
+  - send tonight's plan as one trip per depot (a depot already sent for this plan shows who has it, so nothing is sent twice);
+  - follow deliveries and read drivers' reports.
+- **Driver:** joins with the code and sees only My trips, Report a problem and Account. The planner is never loaded on a driver's phone.
+- **Rules (`firestore.rules`):**
+  - teams are kept apart;
+  - nobody can change their own role, team or paused state;
+  - a driver reads and updates only their own trips (status and stops);
+  - a paused driver loses access immediately;
+  - only an admin creates or removes trips, and only for drivers in their team.
+
+  `scripts/rules-test.mjs` checks 26 cases against the emulators.
+- Live listeners restart after an error. A brand-new account is not on the server for a moment, and Firestore otherwise ends a listener on its first error.
+
+**Alternatives rejected:** accounts stored only on the phone (an admin could not see drivers on other phones); a separate server (not free, and against D-027).
