@@ -516,3 +516,31 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - Forecasts are described as "learned from past sales", "based on your last 28 days of sales" or "taken from your file".
 - Errors say what to do next.
 - Saved sample data always shows its plain name, and the downloadable template is named "My data".
+
+### D-043 · Plan files are locked to the team · Accepted
+**Context:** A `.svcr` file opened in Notepad showed everything inside it: stock, prices, demand and the plan (D-026 made it plain text on purpose). A file forwarded on WhatsApp or email leaked the distributor's data.
+**Decision:**
+- Every plan file that leaves the app is locked with the team's key: AES-256-GCM over the gzipped file, behind a one-line header `ARIA-LOCKED/1 team=<orgId>` (`src/seal.ts`). The header is bound into the lock, and the IV is random per file.
+- The admin creates the key the first time a plan is shared. It is stored at `orgs/{org}/secret/key`, which only active members of that team can read, and nobody can change or replace it (`firestore.rules`, 9 new rule checks).
+- Any signed-in member of the same team opens the file; the key is kept on the phone after first use, so files open offline. Another team, a paused driver or someone without the app sees only the header and unreadable bytes.
+- A changed byte breaks the lock check and the file is refused, as before.
+- The engine's own `aria/svcr.py` format is unchanged and still checked inside the lock (digest, scenario fingerprint, all 8 safety rules). Older unlocked files still open.
+
+### D-044 · Scan labels, check them, plan again · Accepted
+**Context:** Stock counts were typed by hand or uploaded as CSV. Depot staff read the stock off product and lot labels.
+**Decision:**
+- Home → **Scan labels** opens three steps: Scan, Check, Plan again.
+- **Scan:** the Google code scanner on Android and the camera on iOS (`@capacitor-mlkit/barcode-scanning`). In a browser, the built-in barcode reader is used where it exists, and a code can always be typed or pasted.
+- **Labels read (`src/label.ts`):** ARIA QR labels (`ARIA1|product=…|lot=…|qty=…|exp=…|depot=…`, or the same keys as JSON), GS1 barcodes on retail packs ((01) product number, (10) lot, (17)/(15) expiry, (37)/(30) count), or a plain code: a product number, a product id or a lot number.
+- **Check (`src/views/scan.ts`):**
+  - The product, depot, lot, units and expiry are matched against the data, and anything missing is asked for.
+  - A new product number is matched to a product once and remembered on the phone.
+  - A lot already in stock fills in from it and counts as a recount.
+  - Refused:
+    - unknown products and depots;
+    - expired lots;
+    - expiry dates further away than the product's shelf life;
+    - a lot number already used for another product or depot;
+    - units that are not a whole number from 1 to 10,00,000.
+  - A lot too close to expiry for towns is added, with a note that it will not be sent.
+- **Plan again:** the batch is checked by the engine before anything changes. The plan is redone, and the sheet shows the new plan against the one before: units, shortages, units short, customers served, transport cost and lost sales, plus the shipments that changed. Home then shows the new verified plan.

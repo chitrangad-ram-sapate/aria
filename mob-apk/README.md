@@ -24,6 +24,7 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 
 Views:
 - **Home:** load your data CSV (or a sample), plan, network diagram, shortages, pick lists, editable stock with Save, `.svcr`.
+- **Scan labels (Home):** scan a product or lot label (QR or barcode) with the camera or type its code; ARIA checks it, asks for anything missing, refuses what cannot be right, then updates the stock, plans again and shows the new plan against the old one.
 - **What if:** scenarios compared with the baseline, plus a step sweep.
 - **Results:** dashboard with KPIs, network, charts, scenario comparison and, for samples, the historical replay.
 - **Files:** open `.svcr` plan files.
@@ -82,6 +83,8 @@ and an unsigned iOS simulator build.
 `firebase deploy --only hosting` from here.
 
 ## Opening .svcr files
+
+Plan files shared from the app are locked to the team (D-043): only someone signed in to the same team can open them. Opened in a text editor they show one header line and unreadable bytes.
 
 A `.svcr` (Scenario-Verified Consignment Record) carries a plan and the exact inputs it was solved on. The
 Plan view exports the current verified plan with **Share .svcr** (disabled while results are STALE). Opening a
