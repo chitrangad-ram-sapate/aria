@@ -96,7 +96,7 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
     if (!ok && reason.value.trim().length < 3) return toast('Write why the delivery is not accepted.');
     b.disabled = true;
     try {
-      await reviewStop(me.orgId, t, cur(), ok, reason.value.trim().slice(0, 300), me, state.stops[t.id] ?? []);
+      await reviewStop(me.orgId, state.trips.find((x) => x.id === t.id) ?? t, cur(), ok, reason.value.trim().slice(0, 300), me, state.stops[t.id] ?? []);
       toast(ok ? 'Delivery confirmed' : 'Delivery not accepted; the driver can try again');
       close();
     } catch (e: any) {

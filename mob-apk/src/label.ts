@@ -99,7 +99,7 @@ export function parseLabel(input: string): Label {
     return label;
   }
 
-  const looksGs1 = raw.startsWith('(') || raw.includes('\x1d') || (/^01\d{14}/.test(raw) && raw.length > 16);
+  const looksGs1 = raw.startsWith('(') || raw.includes('\x1d') || /^01\d{14}/.test(raw); // "01" + 14 digits alone is a product number only
   const f = looksGs1 ? gs1Fields(raw) : null;
   if (f && (f['01'] || f['10'])) {
     label.kind = 'gs1';

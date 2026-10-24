@@ -100,6 +100,7 @@ export function errorText(e: any): string {
   if (code.includes('too-many-requests')) return 'Too many tries. Wait a minute and try again.';
   if (code.includes('network-request-failed') || code.includes('unavailable')) return 'No internet connection. Connect and try again.';
   if (code.includes('permission-denied')) return 'You do not have access to this.';
+  if (code.includes('no-key')) return 'Could not get your team\'s lock key. Connect to the internet and try again.';
   if (code.includes('file-incomplete')) return 'The file did not arrive in full. Ask your admin to send it again.';
   return 'Something went wrong. Please try again.';
 }
@@ -182,10 +183,12 @@ export async function sendTrips(orgId: string, trips: Omit<Trip, 'id'>[], point:
   }
 }
 
-/** Change a stop and write its numbered event in the same batch. Fails if someone else changed it first. */
-export async function stepStop(orgId: string, s: DeliveryStop, patch: Partial<DeliveryStop>, kind: string, me: Profile, note?: string) {
+/** Change a stop and write its numbered event in the same batch (plus any `extra` writes). Fails if someone else changed it first. */
+export async function stepStop(orgId: string, s: DeliveryStop, patch: Partial<DeliveryStop>, kind: string, me: Profile, note?: string,
+  extra?: (b: ReturnType<typeof writeBatch>) => void) {
   const seq = s.seq + 1;
   const batch = writeBatch(db);
+  extra?.(batch);
   const { pending: _p, id: _i, ...clean } = patch as any;
   batch.update(stopRef(orgId, s), { ...clean, seq, updatedAt: serverTimestamp() });
   batch.set(doc(stopRef(orgId, s), 'events', String(seq)), { seq, state: patch.state ?? s.state, kind, by: me.uid, name: me.name, role: me.role, at: serverTimestamp(),
@@ -216,8 +219,9 @@ export async function makeCode(orgId: string, s: DeliveryStop, me: Profile): Pro
   const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
   const hash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${code}`)));
   const gen = s.codeGen + 1;
-  await setDoc(doc(stopRef(orgId, s), 'code', String(gen)), { hash, salt, expiresAt: Timestamp.fromMillis(Date.now() + 24 * 3600_000), createdAt: serverTimestamp() });
-  await stepStop(orgId, s, { codeGen: gen }, 'code', me);
+  // one batch: a code saved without its step would block that number for good (codes can only be created)
+  await stepStop(orgId, s, { codeGen: gen }, 'code', me, undefined, (b) =>
+    b.set(doc(stopRef(orgId, s), 'code', String(gen)), { hash, salt, expiresAt: Timestamp.fromMillis(Date.now() + 24 * 3600_000), createdAt: serverTimestamp() }));
   return code;
 }
 

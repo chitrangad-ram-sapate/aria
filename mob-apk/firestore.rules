@@ -161,8 +161,9 @@ service cloud.firestore {
           }
           // The recipient code: only its salted hash, readable by the admin alone. Drivers never see it.
           match /code/{gen} {
-            allow read, create: if isAdminOf(orgId);
-            allow delete: if isAdminOf(orgId);
+            allow read, create, delete: if isAdminOf(orgId);
+            // a code saved by an older app version without its step blocked that number; the admin may write it again
+            allow update: if isAdminOf(orgId);
           }
           // Code tries by the driver: at most 5 per code, in order. The admin can see them.
           match /tries/{tryId} {

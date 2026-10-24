@@ -295,6 +295,10 @@ function proofForm(_t: Trip, s: DeliveryStop) {
   const name = h('input', { type: 'text', placeholder: 'Name of the person receiving', 'aria-label': 'Recipient name', autocomplete: 'off', value: typed.name, oninput: () => { typed.name = name.value; } });
   const code = h('input', { type: 'text', inputMode: 'numeric', maxLength: 6, placeholder: '6-digit code from the shop', 'aria-label': 'Recipient code', autocomplete: 'off', class: 'code-input',
     value: typed.code, oninput: () => { typed.code = code.value; } });
+  // a live update redraws this form: keep the cursor (and the phone keyboard) in the box being typed in
+  const was = document.activeElement?.getAttribute('aria-label');
+  const keep = was === 'Recipient name' ? name : was === 'Recipient code' ? code : null;
+  if (keep) queueMicrotask(() => { keep.focus(); keep.setSelectionRange(keep.value.length, keep.value.length); });
   const msg = h('p', { class: typed.bad ? 'small bad-text' : 'small', 'aria-live': 'polite' }, typed.msg);
   const say = (text: string, bad = true) => { typed.msg = text; typed.bad = bad; msg.textContent = text; msg.className = bad ? 'small bad-text' : 'small'; };
   const send = h('button', { class: 'btn primary block big', disabled: !s.codeGen || s.pending }, 'Submit delivery proof');

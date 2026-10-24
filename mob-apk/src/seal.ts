@@ -17,9 +17,9 @@ const pipe = async (b: Uint8Array, t: CompressionStream | DecompressionStream) =
 const toB64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function keyFor(orgId: string, create: boolean): Promise<CryptoKey> {
+async function keyFor(orgId: string, create: boolean, fresh = false): Promise<CryptoKey> {
   let raw: string | null = null;
-  try { raw = localStorage.getItem(CACHE + orgId); } catch { /* storage blocked: fetch it again */ }
+  try { raw = fresh ? null : localStorage.getItem(CACHE + orgId); } catch { /* storage blocked: fetch it again */ }
   if (!raw) {
     raw = await getTeamKey(orgId, create ? () => toB64(crypto.getRandomValues(new Uint8Array(32))) : null);
     if (!raw) throw new LockedError('no-key');
@@ -61,10 +61,16 @@ export async function unlockPlan(bytes: Uint8Array, orgId: string | null | undef
   } catch {
     throw new LockedError('Connect to the internet once to open locked plan files on this phone.');
   }
-  try {
+  const open = async (k: CryptoKey) => {
     const z = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.subarray(nl + 1, nl + 13) as Uint8Array<ArrayBuffer>, additionalData: bytes.subarray(0, nl + 1) as Uint8Array<ArrayBuffer> },
-      key, bytes.subarray(nl + 13) as Uint8Array<ArrayBuffer>);
-    return await pipe(new Uint8Array(z), new DecompressionStream('gzip'));
+      k, bytes.subarray(nl + 13) as Uint8Array<ArrayBuffer>);
+    return pipe(new Uint8Array(z), new DecompressionStream('gzip'));
+  };
+  try {
+    return await open(key);
+  } catch { /* maybe the key kept on this phone is out of date: try the team's key once more */ }
+  try {
+    return await open(await keyFor(orgId, false, true));
   } catch {
     throw new LockedError('The file was changed or damaged after it was made.');
   }

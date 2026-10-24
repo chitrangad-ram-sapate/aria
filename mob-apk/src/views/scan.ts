@@ -15,6 +15,7 @@ type Field = 'product' | 'depot' | 'lot' | 'qty' | 'expiry';
 
 const BARCODES = 'aria.barcodes'; // product number → product id, learned when someone picks the product for a new barcode
 let items: Item[] = []; // the batch survives closing the sheet, until it is added to stock
+let itemsData = ''; // the dataset the batch was scanned against; another dataset starts a new batch
 let lastDepot = '';
 let body: HTMLElement;
 let phase: 'scan' | 'check' | 'busy' | 'done' = 'scan';
@@ -114,6 +115,7 @@ function check(d: Draft) {
 export function scanSheet() {
   if (!state.scenario) return toast('Load your data first.');
   if (phase !== 'busy') { phase = 'scan'; result = null; problems = []; draft = null; }
+  if (itemsData !== state.scenarioId) { items = []; itemsData = state.scenarioId; lastDepot = ''; }
   body = h('div', { class: 'scan' });
   openSheet('Scan stock labels', body);
   draw();

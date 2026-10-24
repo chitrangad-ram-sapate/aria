@@ -12,6 +12,7 @@ const vals: Record<string, string> = {}; // typed values survive a redraw (an er
 
 const field = (labelText: string, attrs: Record<string, any>) => h('label', {}, labelText,
   h('input', { required: true, value: vals[attrs.name] ?? '', oninput: (e: Event) => { vals[attrs.name] = (e.target as HTMLInputElement).value; }, ...attrs }));
+const NOT_BLANK = String.raw`.*\S.*`; // required fields must hold more than spaces
 const val = (form: HTMLFormElement, name: string) => String(new FormData(form).get(name) ?? '').trim();
 
 export function render(r: HTMLElement) {
@@ -61,8 +62,8 @@ function draw() {
     const form: HTMLFormElement = h('form', { class: 'card login-card', onsubmit: (e: Event) => { e.preventDefault(); run(form, () => signUpAdmin(val(form, 'name'), val(form, 'email'), val(form, 'password'), val(form, 'team'))); } },
       h('h2', {}, 'Create your team'),
       h('p', { class: 'small muted' }, 'You will be the admin: you load the data, plan the night and send each driver their trip. Drivers join with a code you get after this.'),
-      field('Your name', { name: 'name', autocomplete: 'name' }),
-      field('Company or team name', { name: 'team', autocomplete: 'organization' }),
+      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name' }),
+      field('Company or team name', { name: 'team', autocomplete: 'organization', pattern: NOT_BLANK, title: 'Enter the team name' }),
       field('Email', { type: 'email', name: 'email', autocomplete: 'email' }),
       field('Password (at least 6 characters)', { type: 'password', name: 'password', autocomplete: 'new-password', minLength: 6 }),
       msg, submit('Create team'), back);
@@ -85,9 +86,9 @@ function draw() {
       h('label', {}, 'Team code', h('input', { name: 'code', required: true, value: vals.code ?? '', autocapitalize: 'characters', inputMode: 'text', class: 'code-input', maxLength: 6, minLength: 6,
         oninput: (e: Event) => check(e.target as HTMLInputElement) })),
       team,
-      field('Your name', { name: 'name', autocomplete: 'name' }),
+      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name' }),
       field('Phone number', { type: 'tel', name: 'phone', autocomplete: 'tel' }),
-      field('Vehicle number', { name: 'vehicle', placeholder: 'e.g. MH09 AB 1234' }),
+      field('Vehicle number', { name: 'vehicle', placeholder: 'e.g. MH09 AB 1234', pattern: NOT_BLANK, title: 'Enter the vehicle number' }),
       field('Email', { type: 'email', name: 'email', autocomplete: 'email' }),
       field('Password (at least 6 characters)', { type: 'password', name: 'password', autocomplete: 'new-password', minLength: 6 }),
       msg, submit('Join team'), back);

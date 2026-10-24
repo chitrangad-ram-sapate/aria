@@ -580,3 +580,19 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - Android watch: `timeout` 5 s (no batching), `minimumUpdateInterval` 2 s. While a stop is on its way, the stop page asks for a fresh reading when none came in the last 8 s.
 **Tests:** 124 rule checks (3 new: point set while on the way, refused after arrival, refused with an old change number). The end-to-end test passes.
 **Needs:** `npm run deploy:rules` on the live project.
+
+### D-047 · QA pass: fixes from code review, input fuzzing and on-phone testing · Accepted
+**Context:** A full QA round: every test suite, a review of the cloud, scanning, plan-file and screen code, malformed-CSV fuzzing of the importer, and tests on the Pixel (online, offline, driver flow).
+**Decision (bugs fixed):**
+- **Delivery codes:** the code record and its stop step are written in one batch, so a failed step can no longer leave a code number that can never be made again. The rules let the admin rewrite a code record, which repairs stops already stuck.
+- **Admin:** confirming a delivery uses the latest trip. A cancelled trip no longer blocks sending that depot's load again. Sending to a driver who was just paused no longer crashes.
+- **CSV import:** `inf`, `1e400` and `nan` give a row error instead of crashing the importer. Positions must have both lat and lon and lie on the globe. Settings must be finite numbers.
+- **Labels:** a GS1 code holding only (01) and the product number (16 characters) is read.
+- **Scanner:** the scanned list is cleared when another dataset is loaded.
+- **Plan files:** if the team key kept on the phone does not open a file, the team's key is fetched once more. A missing key gets a plain message.
+- **Sign-out:** the account's listeners stop and its data is cleared.
+- **Sign-up:** names and vehicle numbers that are only spaces are refused.
+- **Driver:** typed report details and the cursor in the proof form survive live updates. Offline, a report says it is saved on the phone instead of hanging on "Sending...".
+- **Layout:** spacing around lists inside cards and in delivery summaries; a readable placeholder for the delivery code.
+**Checked and fine:** expired stock is warned about and never shipped; negative stock is refused; offline, the driver still sees trips, opens plan files and runs the full safety check.
+**Tests:** 126 rule checks, 21 arrival checks, 145 engine and data tests (6 new), and the end-to-end test all pass.

@@ -69,7 +69,8 @@ function sendCard() {
   if (isStale(p.resp)) return [head, h('section', { class: 'card' }, h('p', { class: 'small' }, 'Your data changed after planning. Plan again on Home, then send the trips.'))];
   if (!p.plan.verifier?.passed) return [head, h('section', { class: 'card' }, errorBox('This plan did not pass the safety checks, so it cannot be sent.'))];
   const trips = tripsFromPlan(p.plan, p.resp.scenario_hash);
-  const sentTo = (depot: string) => state.trips.find((t) => t.planKey === p.resp.scenario_hash && t.depot_id === depot);
+  // a cancelled trip does not count as sent: the admin can send that depot's load again
+  const sentTo = (depot: string) => state.trips.find((t) => t.planKey === p.resp.scenario_hash && t.depot_id === depot && t.status !== 'cancelled');
   if (!trips.length) return [head, h('section', { class: 'card' }, h('p', { class: 'small' }, 'Nothing to ship tonight.'))];
   const opts: [string, string][] = [['', 'Choose a driver'], ...active.map((d): [string, string] => [d.uid, `${d.name}${d.vehicle ? ` · ${d.vehicle}` : ''}`])];
   const ready = trips.filter((t) => choice[t.depot_id] && !sentTo(t.depot_id));
@@ -97,10 +98,11 @@ function deliveryPoint(townId: string): { lat: number; lon: number } | null {
 
 async function send(trips: ReturnType<typeof tripsFromPlan>) {
   const me = state.me!;
-  const out = trips.filter((t) => choice[t.depot_id] && !state.trips.some((x) => x.planKey === t.planKey && x.depot_id === t.depot_id)).map((t) => {
-    const d = state.drivers.find((x) => x.uid === choice[t.depot_id])!;
-    return { ...t, driverUid: d.uid, driverName: d.name };
-  });
+  const out = trips.filter((t) => choice[t.depot_id] && !state.trips.some((x) => x.planKey === t.planKey && x.depot_id === t.depot_id && x.status !== 'cancelled')).map((t) => {
+    const d = state.drivers.find((x) => x.uid === choice[t.depot_id] && x.active);
+    return d ? { ...t, driverUid: d.uid, driverName: d.name } : null;
+  }).filter((t) => t !== null);
+  if (!out.length) { for (const k of Object.keys(choice)) delete choice[k]; toast('That driver is paused or left the team. Choose again.'); return update(); }
   sending = true;
   update();
   try {
