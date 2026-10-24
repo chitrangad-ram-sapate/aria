@@ -9,12 +9,16 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 | `src/` | UI (plain TS + CSS) and `worker.ts` (Pyodide) |
 | `engine/aria/` | The engine modules the app runs (copied from the full ARIA tree) |
 | `engine/data/` | Bundled scenarios, networks, `params.yaml`, `replay_*.json` |
-| `engine/bridge.py` | Glue the worker calls; no engine logic |
+| `engine/bridge.py` | Glue the worker calls (plus impact and excess figures from engine functions) |
+| `engine/device_forecast.py` | On-device forecast for an imported sales CSV: scikit-learn quantile boosting with split-conformal calibration, or empirical quantiles (labelled fallback) |
+| `engine/assumptions.yaml` | A1-A9, limitations and data sources for the Assumptions tab |
 | `engine/tests/` | The engine's pure tests (`ARIA_SOLVER=scipy`) |
 | `scripts/prepare.mjs` | Copies the Pyodide runtime + wheels into `public/pyodide/` and zips `engine/` into `public/aria-bundle.zip` |
 | `scripts/sync-engine.mjs` | `npm run sync-engine`: refreshes `engine/` from `../aria`, `../data`, `../tests` when they exist |
 | `scripts/smoke.mjs` | Headless Chrome smoke check of the built app |
 | `android/`, `ios/` | Capacitor native projects |
+
+Views: Plan (scenario, CSV import, editable stock, impact vs baseline (a), allocations, shortfalls, excess, forecasts, explain, `.svcr` and pick lists), Proof, Disruption Lab, Records, Assumptions.
 
 ## Develop
 
@@ -28,8 +32,8 @@ npm run dev          # http://localhost:5173 (first run downloads the Pyodide wh
 ## Build and test
 
 ```bash
-npm run build        # dist/  (web bundle, about 38 MB, mostly Pyodide + SciPy)
-npm run smoke        # headless Chrome: boot, plan, STALE, .svcr export/open/tamper, disruption, proof
+npm run build        # dist/  (web bundle, about 44 MB, mostly Pyodide, SciPy and scikit-learn)
+npm run smoke        # headless Chrome: boot, plan, impact, STALE, .svcr export/open/tamper, disruption, CSV import, assumptions, proof
 cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest -q
 ```
 
