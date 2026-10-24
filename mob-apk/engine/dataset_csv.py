@@ -165,7 +165,7 @@ def _parse(name: str, hl: int, header: list[str], data: list, errors: list) -> l
             try:
                 if typ == "int":
                     f = float(raw)
-                    if f != int(f):
+                    if not math.isfinite(f) or f != int(f):  # "inf" / "1e400" would overflow int()
                         raise ValueError
                     rec[col] = int(f)
                 elif typ == "float":
@@ -247,6 +247,8 @@ def from_csv(text: str, base: dict | None = None, use_ml: bool = True) -> dict:
                 sc[k] = v
             elif k in SETTINGS:
                 sc["policy"][k] = float(v)
+                if not math.isfinite(sc["policy"][k]):
+                    raise ValueError("must be a number")
             elif k.startswith("freight_rs_per_tkm_"):
                 vc = k.removeprefix("freight_rs_per_tkm_")
                 if vc not in VEHICLES:
@@ -271,6 +273,14 @@ def from_csv(text: str, base: dict | None = None, use_ml: bool = True) -> dict:
     uniq("towns", lambda r: r["town_id"])
     uniq("routes", lambda r: (r["depot_id"], r["town_id"]))
     uniq("demand", lambda r: (r["town_id"], r["product_id"]))
+    # map positions: both or neither, and on the globe (a town with half a position gets no delivery point)
+    for name in ("depots", "towns"):
+        for r in recs.get(name, []):
+            lat, lon = r["lat"], r["lon"]
+            if (lat is None) != (lon is None):
+                errors.append({"section": name, "line": r["_line"], "message": "give both lat and lon, or leave both empty"})
+            elif lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                errors.append({"section": name, "line": r["_line"], "message": "lat must be from -90 to 90 and lon from -180 to 180"})
     if "products" in parts:
         sc["products"] = [{"product_id": r["product_id"], "category": r["category"], "kg_per_unit": r["kg_per_unit"],
                            "shelf_life_days": r["shelf_life_days"], "min_days_at_receipt": r["min_days_at_receipt"],
