@@ -1,0 +1,803 @@
+{
+ "network": "maharashtra",
+ "products": 40,
+ "windows": [
+  1,
+  2
+ ],
+ "window_days": {
+  "1": [
+   "2016-03-28",
+   "2016-04-24"
+  ],
+  "2": [
+   "2016-04-25",
+   "2016-05-22"
+  ]
+ },
+ "leakage": {
+  "1": {
+   "train_max_day": "2016-03-27",
+   "test_min_day": "2016-03-28",
+   "ok": true
+  },
+  "2": {
+   "train_max_day": "2016-04-24",
+   "test_min_day": "2016-04-25",
+   "ok": true
+  }
+ },
+ "leakage_ok": true,
+ "points": {
+  "own": {
+   "freight_point": "own",
+   "conservation_ok": true,
+   "per_policy": {
+    "baseline_a": {
+     "bill_paise": 48317609800,
+     "freight": 630060894,
+     "holding": 33425821,
+     "writeoff": 47257902073,
+     "lost_margin": 396221012,
+     "lost_units": 900319,
+     "sold_units": 16369612,
+     "demand_units": 17269931,
+     "writeoff_units": 2539680,
+     "shipped_units": 16523606,
+     "fill_rate": 0.9478678287712904,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_prime": {
+     "bill_paise": 40886629988,
+     "freight": 576378061,
+     "holding": 35078031,
+     "writeoff": 39941472411,
+     "lost_margin": 333701485,
+     "lost_units": 1029817,
+     "sold_units": 16240114,
+     "demand_units": 17269931,
+     "writeoff_units": 2204695,
+     "shipped_units": 16414890,
+     "fill_rate": 0.9403693622169075,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_dprime": {
+     "bill_paise": 41789125101,
+     "freight": 632378170,
+     "holding": 40583106,
+     "writeoff": 40916443285,
+     "lost_margin": 199720540,
+     "lost_units": 514093,
+     "sold_units": 16755838,
+     "demand_units": 17269931,
+     "writeoff_units": 2213268,
+     "shipped_units": 17124876,
+     "fill_rate": 0.9702319019108994,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "aria": {
+     "bill_paise": 39155315753,
+     "freight": 582533442,
+     "holding": 41697691,
+     "writeoff": 38240605856,
+     "lost_margin": 290478764,
+     "lost_units": 948461,
+     "sold_units": 16321470,
+     "demand_units": 17269931,
+     "writeoff_units": 2127418,
+     "shipped_units": 16744795,
+     "fill_rate": 0.9450802090639505,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "hindsight": {
+     "bill_paise": 44175987590,
+     "freight": 582824009,
+     "holding": 1229318,
+     "writeoff": 43486701882,
+     "lost_margin": 105232381,
+     "lost_units": 288887,
+     "sold_units": 16981044,
+     "demand_units": 17269931,
+     "writeoff_units": 2257026,
+     "shipped_units": 16185695,
+     "fill_rate": 0.9832722551120789,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    }
+   },
+   "kpi1": {
+    "diff_paise": -2633809348.0,
+    "ci_low": -7018523082.15,
+    "ci_high": 514903199.27499986,
+    "pass": false
+   },
+   "kpi1b": {
+    "diff_paise": -1731314235.0,
+    "ci_low": -4203410351.875,
+    "ci_high": 216393583.14999986,
+    "pass": false
+   },
+   "kpi1c": {
+    "diff_paise": -9162294047.0,
+    "ci_low": -17212624892.55,
+    "ci_high": -4027794860.9250035,
+    "pass": true
+   },
+   "kpi3": {
+    "diff_paise_per_unit": -546.2509202060196,
+    "ci_low": -1029.2187151578926,
+    "ci_high": -233.53642429664194,
+    "pass": true
+   },
+   "kpi4": {
+    "diff": -412262.0,
+    "ci_low": -792119.775,
+    "ci_high": -177980.3750000001,
+    "pass": true
+   },
+   "gap_closed": {
+    "value": 2.2122476610439077,
+    "ci_low": 0.7955261981989008,
+    "ci_high": 4.835437225127347,
+    "gap_paise": 4141622210.0,
+    "gap_ci": [
+     2965564430.375,
+     6139722305.075
+    ],
+    "display": "221%"
+   },
+   "expose": {
+    "rank_by_lost_units": [
+     "hindsight",
+     "b_dprime",
+     "baseline_a",
+     "aria",
+     "b_prime"
+    ],
+    "rank_by_full_cost": [
+     "aria",
+     "b_prime",
+     "b_dprime",
+     "hindsight",
+     "baseline_a"
+    ],
+    "lost_units": {
+     "baseline_a": 900319,
+     "b_prime": 1029817,
+     "b_dprime": 514093,
+     "aria": 948461,
+     "hindsight": 288887
+    },
+    "bill_paise": {
+     "baseline_a": 48317609800,
+     "b_prime": 40886629988,
+     "b_dprime": 41789125101,
+     "aria": 39155315753,
+     "hindsight": 44175987590
+    },
+    "fewer_lost_units_but_dearer": [
+     {
+      "policy": "baseline_a",
+      "than": "b_prime"
+     },
+     {
+      "policy": "baseline_a",
+      "than": "aria"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "b_prime"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "aria"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_prime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_dprime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "aria"
+     }
+    ],
+    "message": "Ranking by lost units alone differs from ranking by the full bill: fewer lost sales were bought with cost."
+   }
+  },
+  "road_avg": {
+   "freight_point": "road_avg",
+   "conservation_ok": true,
+   "per_policy": {
+    "baseline_a": {
+     "bill_paise": 48289427439,
+     "freight": 601878533,
+     "holding": 33425821,
+     "writeoff": 47257902073,
+     "lost_margin": 396221012,
+     "lost_units": 900319,
+     "sold_units": 16369612,
+     "demand_units": 17269931,
+     "writeoff_units": 2539680,
+     "shipped_units": 16523606,
+     "fill_rate": 0.9478678287712904,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_prime": {
+     "bill_paise": 40884551811,
+     "freight": 533511502,
+     "holding": 35913168,
+     "writeoff": 39984487405,
+     "lost_margin": 330639736,
+     "lost_units": 1014834,
+     "sold_units": 16255097,
+     "demand_units": 17269931,
+     "writeoff_units": 2205818,
+     "shipped_units": 16442858,
+     "fill_rate": 0.9412369395106442,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_dprime": {
+     "bill_paise": 41778210376,
+     "freight": 591983020,
+     "holding": 40578230,
+     "writeoff": 40945567671,
+     "lost_margin": 200081455,
+     "lost_units": 516212,
+     "sold_units": 16753719,
+     "demand_units": 17269931,
+     "writeoff_units": 2216290,
+     "shipped_units": 17123935,
+     "fill_rate": 0.970109203099885,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "aria": {
+     "bill_paise": 39197947520,
+     "freight": 537885719,
+     "holding": 43271085,
+     "writeoff": 38328637720,
+     "lost_margin": 288152996,
+     "lost_units": 931135,
+     "sold_units": 16338796,
+     "demand_units": 17269931,
+     "writeoff_units": 2132134,
+     "shipped_units": 16787266,
+     "fill_rate": 0.946083455689545,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "hindsight": {
+     "bill_paise": 44140365348,
+     "freight": 545554175,
+     "holding": 1229318,
+     "writeoff": 43488365409,
+     "lost_margin": 105216446,
+     "lost_units": 288821,
+     "sold_units": 16981110,
+     "demand_units": 17269931,
+     "writeoff_units": 2257263,
+     "shipped_units": 16185761,
+     "fill_rate": 0.9832760767833989,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    }
+   },
+   "kpi1": {
+    "diff_paise": -2580262856.0,
+    "ci_low": -6910370467.9,
+    "ci_high": 631214058.3499993,
+    "pass": false
+   },
+   "kpi1b": {
+    "diff_paise": -1686604291.0,
+    "ci_low": -4170691061.0,
+    "ci_high": 322121206.54999954,
+    "pass": false
+   },
+   "kpi1c": {
+    "diff_paise": -9091479919.0,
+    "ci_low": -17314463557.95,
+    "ci_high": -3773045302.9500012,
+    "pass": true
+   },
+   "kpi3": {
+    "diff_paise_per_unit": -544.302795684896,
+    "ci_low": -1033.1667697768194,
+    "ci_high": -216.2674936104076,
+    "pass": true
+   },
+   "kpi4": {
+    "diff": -407546.0,
+    "ci_low": -788899.15,
+    "ci_high": -168657.525,
+    "pass": true
+   },
+   "gap_closed": {
+    "value": 2.1912132717225226,
+    "ci_low": 0.7586212161797689,
+    "ci_high": 4.819762986664422,
+    "gap_paise": 4149062091.0,
+    "gap_ci": [
+     2990680998.875,
+     6145610454.65
+    ],
+    "display": "219%"
+   },
+   "expose": {
+    "rank_by_lost_units": [
+     "hindsight",
+     "b_dprime",
+     "baseline_a",
+     "aria",
+     "b_prime"
+    ],
+    "rank_by_full_cost": [
+     "aria",
+     "b_prime",
+     "b_dprime",
+     "hindsight",
+     "baseline_a"
+    ],
+    "lost_units": {
+     "baseline_a": 900319,
+     "b_prime": 1014834,
+     "b_dprime": 516212,
+     "aria": 931135,
+     "hindsight": 288821
+    },
+    "bill_paise": {
+     "baseline_a": 48289427439,
+     "b_prime": 40884551811,
+     "b_dprime": 41778210376,
+     "aria": 39197947520,
+     "hindsight": 44140365348
+    },
+    "fewer_lost_units_but_dearer": [
+     {
+      "policy": "baseline_a",
+      "than": "b_prime"
+     },
+     {
+      "policy": "baseline_a",
+      "than": "aria"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "b_prime"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "aria"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_prime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_dprime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "aria"
+     }
+    ],
+    "message": "Ranking by lost units alone differs from ranking by the full bill: fewer lost sales were bought with cost."
+   }
+  },
+  "6t": {
+   "freight_point": "6t",
+   "conservation_ok": true,
+   "per_policy": {
+    "baseline_a": {
+     "bill_paise": 49598043871,
+     "freight": 1764393400,
+     "holding": 33409316,
+     "writeoff": 47402962484,
+     "lost_margin": 397278671,
+     "lost_units": 900700,
+     "sold_units": 16369231,
+     "demand_units": 17269931,
+     "writeoff_units": 2546686,
+     "shipped_units": 16522007,
+     "fill_rate": 0.9478457673050344,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_prime": {
+     "bill_paise": 43160156877,
+     "freight": 1275631731,
+     "holding": 28977246,
+     "writeoff": 41102135654,
+     "lost_margin": 753412246,
+     "lost_units": 1971997,
+     "sold_units": 15297934,
+     "demand_units": 17269931,
+     "writeoff_units": 2288267,
+     "shipped_units": 15368006,
+     "fill_rate": 0.8858132670014721,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_dprime": {
+     "bill_paise": 42972840466,
+     "freight": 1719449789,
+     "holding": 40674364,
+     "writeoff": 41007346812,
+     "lost_margin": 205369501,
+     "lost_units": 537704,
+     "sold_units": 16732227,
+     "demand_units": 17269931,
+     "writeoff_units": 2232643,
+     "shipped_units": 17119175,
+     "fill_rate": 0.9688647279482472,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "aria": {
+     "bill_paise": 41381987752,
+     "freight": 1291867674,
+     "holding": 34320883,
+     "writeoff": 39353158665,
+     "lost_margin": 702640530,
+     "lost_units": 1890288,
+     "sold_units": 15379643,
+     "demand_units": 17269931,
+     "writeoff_units": 2212927,
+     "shipped_units": 15675815,
+     "fill_rate": 0.8905445539996657,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "hindsight": {
+     "bill_paise": 45257436197,
+     "freight": 1472582319,
+     "holding": 1229318,
+     "writeoff": 43592350200,
+     "lost_margin": 191274360,
+     "lost_units": 700485,
+     "sold_units": 16569446,
+     "demand_units": 17269931,
+     "writeoff_units": 2297458,
+     "shipped_units": 15774097,
+     "fill_rate": 0.9594390388705085,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    }
+   },
+   "kpi1": {
+    "diff_paise": -1590852714.0,
+    "ci_low": -5843252540.95,
+    "ci_high": 1814150965.95,
+    "pass": false
+   },
+   "kpi1b": {
+    "diff_paise": -1778169125.0,
+    "ci_low": -4146127019.75,
+    "ci_high": 156025141.79999998,
+    "pass": false
+   },
+   "kpi1c": {
+    "diff_paise": -8216056119.0,
+    "ci_low": -16845619182.625,
+    "ci_high": -2397190519.0000005,
+    "pass": true
+   },
+   "kpi3": {
+    "diff_paise_per_unit": -360.67335093245083,
+    "ci_low": -847.8807459856356,
+    "ci_high": -56.453825675278914,
+    "pass": true
+   },
+   "kpi4": {
+    "diff": -333759.0,
+    "ci_low": -729976.3,
+    "ci_high": -75690.8,
+    "pass": true
+   },
+   "gap_closed": {
+    "value": 1.8928354590104335,
+    "ci_low": 0.5301859485426718,
+    "ci_high": 3.9957935864224687,
+    "gap_paise": 4340607674.0,
+    "gap_ci": [
+     3099584612.9500003,
+     6833839064.974999
+    ],
+    "display": "189%"
+   },
+   "expose": {
+    "rank_by_lost_units": [
+     "b_dprime",
+     "hindsight",
+     "baseline_a",
+     "aria",
+     "b_prime"
+    ],
+    "rank_by_full_cost": [
+     "aria",
+     "b_dprime",
+     "b_prime",
+     "hindsight",
+     "baseline_a"
+    ],
+    "lost_units": {
+     "baseline_a": 900700,
+     "b_prime": 1971997,
+     "b_dprime": 537704,
+     "aria": 1890288,
+     "hindsight": 700485
+    },
+    "bill_paise": {
+     "baseline_a": 49598043871,
+     "b_prime": 43160156877,
+     "b_dprime": 42972840466,
+     "aria": 41381987752,
+     "hindsight": 45257436197
+    },
+    "fewer_lost_units_but_dearer": [
+     {
+      "policy": "baseline_a",
+      "than": "b_prime"
+     },
+     {
+      "policy": "baseline_a",
+      "than": "aria"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "aria"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_prime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "aria"
+     }
+    ],
+    "message": "Ranking by lost units alone differs from ranking by the full bill: fewer lost sales were bought with cost."
+   }
+  },
+  "55t": {
+   "freight_point": "55t",
+   "conservation_ok": true,
+   "per_policy": {
+    "baseline_a": {
+     "bill_paise": 47910267000,
+     "freight": 233508647,
+     "holding": 33430303,
+     "writeoff": 47247821253,
+     "lost_margin": 395506797,
+     "lost_units": 898496,
+     "sold_units": 16371435,
+     "demand_units": 17269931,
+     "writeoff_units": 2538996,
+     "shipped_units": 16525800,
+     "fill_rate": 0.9479733879654759,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_prime": {
+     "bill_paise": 39958960826,
+     "freight": 226335392,
+     "holding": 41151324,
+     "writeoff": 39474485921,
+     "lost_margin": 216988189,
+     "lost_units": 691177,
+     "sold_units": 16578754,
+     "demand_units": 17269931,
+     "writeoff_units": 2168769,
+     "shipped_units": 16875437,
+     "fill_rate": 0.9599780103348415,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "b_dprime": {
+     "bill_paise": 41329362220,
+     "freight": 235373088,
+     "holding": 40564015,
+     "writeoff": 40855164111,
+     "lost_margin": 198261006,
+     "lost_units": 508412,
+     "sold_units": 16761519,
+     "demand_units": 17269931,
+     "writeoff_units": 2209654,
+     "shipped_units": 17129261,
+     "fill_rate": 0.9705608551649685,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "aria": {
+     "bill_paise": 38229453721,
+     "freight": 230329088,
+     "holding": 51190899,
+     "writeoff": 37789862217,
+     "lost_margin": 158071517,
+     "lost_units": 561797,
+     "sold_units": 16708134,
+     "demand_units": 17269931,
+     "writeoff_units": 2095414,
+     "shipped_units": 17291223,
+     "fill_rate": 0.9674696442041373,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    },
+    "hindsight": {
+     "bill_paise": 43812492744,
+     "freight": 217817045,
+     "holding": 1229318,
+     "writeoff": 43491775588,
+     "lost_margin": 101670793,
+     "lost_units": 235041,
+     "sold_units": 17034890,
+     "demand_units": 17269931,
+     "writeoff_units": 2256549,
+     "shipped_units": 16239541,
+     "fill_rate": 0.9863901598680388,
+     "verifier_failures": 0,
+     "conservation_ok": true
+    }
+   },
+   "kpi1": {
+    "diff_paise": -3099908499.0,
+    "ci_low": -7369974652.95,
+    "ci_high": -122036740.72500037,
+    "pass": true
+   },
+   "kpi1b": {
+    "diff_paise": -1729507105.0,
+    "ci_low": -4253710397.4,
+    "ci_high": 328602733.47499985,
+    "pass": false
+   },
+   "kpi1c": {
+    "diff_paise": -9680813279.0,
+    "ci_low": -17732055728.2,
+    "ci_high": -4613065300.675,
+    "pass": true
+   },
+   "kpi3": {
+    "diff_paise_per_unit": -623.6829536600553,
+    "ci_low": -1117.8431522725944,
+    "ci_high": -290.7286369519557,
+    "pass": true
+   },
+   "kpi4": {
+    "diff": -443582.0,
+    "ci_low": -820587.225,
+    "ci_high": -217549.95,
+    "pass": true
+   },
+   "gap_closed": {
+    "value": 2.3624564639755987,
+    "ci_low": 0.9273481904247068,
+    "ci_high": 4.9971946121494835,
+    "gap_paise": 4097774256.0,
+    "gap_ci": [
+     2973001275.625,
+     6035340487.125
+    ],
+    "display": "236%"
+   },
+   "expose": {
+    "rank_by_lost_units": [
+     "hindsight",
+     "b_dprime",
+     "aria",
+     "b_prime",
+     "baseline_a"
+    ],
+    "rank_by_full_cost": [
+     "aria",
+     "b_prime",
+     "b_dprime",
+     "hindsight",
+     "baseline_a"
+    ],
+    "lost_units": {
+     "baseline_a": 898496,
+     "b_prime": 691177,
+     "b_dprime": 508412,
+     "aria": 561797,
+     "hindsight": 235041
+    },
+    "bill_paise": {
+     "baseline_a": 47910267000,
+     "b_prime": 39958960826,
+     "b_dprime": 41329362220,
+     "aria": 38229453721,
+     "hindsight": 43812492744
+    },
+    "fewer_lost_units_but_dearer": [
+     {
+      "policy": "b_dprime",
+      "than": "b_prime"
+     },
+     {
+      "policy": "b_dprime",
+      "than": "aria"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_prime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "b_dprime"
+     },
+     {
+      "policy": "hindsight",
+      "than": "aria"
+     }
+    ],
+    "message": "Ranking by lost units alone differs from ranking by the full bill: fewer lost sales were bought with cost."
+   }
+  }
+ },
+ "kpi10": {
+  "pass": false,
+  "road_avg": false,
+  "6t": false,
+  "55t_reported": {
+   "diff_paise": -3099908499.0,
+   "ci_low": -7369974652.95,
+   "ci_high": -122036740.72500037,
+   "pass": true
+  }
+ },
+ "runtime_s": 162.6,
+ "job_seconds": {
+  "own/w1/baseline_a": 14.8,
+  "own/w1/b_prime": 77.2,
+  "own/w1/b_dprime": 59.7,
+  "own/w1/aria": 74.0,
+  "own/w1/hindsight": 22.6,
+  "own/w2/baseline_a": 13.2,
+  "own/w2/b_prime": 71.5,
+  "own/w2/b_dprime": 51.8,
+  "own/w2/aria": 66.7,
+  "own/w2/hindsight": 20.3,
+  "road_avg/w1/baseline_a": 13.6,
+  "road_avg/w1/b_prime": 72.1,
+  "road_avg/w1/b_dprime": 60.9,
+  "road_avg/w1/aria": 62.1,
+  "road_avg/w1/hindsight": 24.0,
+  "road_avg/w2/baseline_a": 14.1,
+  "road_avg/w2/b_prime": 79.2,
+  "road_avg/w2/b_dprime": 48.4,
+  "road_avg/w2/aria": 61.3,
+  "road_avg/w2/hindsight": 22.0,
+  "6t/w1/baseline_a": 14.2,
+  "6t/w1/b_prime": 81.3,
+  "6t/w1/b_dprime": 58.6,
+  "6t/w1/aria": 79.9,
+  "6t/w1/hindsight": 18.8,
+  "6t/w2/baseline_a": 13.9,
+  "6t/w2/b_prime": 75.8,
+  "6t/w2/b_dprime": 50.5,
+  "6t/w2/aria": 68.1,
+  "6t/w2/hindsight": 19.8,
+  "55t/w1/baseline_a": 16.8,
+  "55t/w1/b_prime": 64.0,
+  "55t/w1/b_dprime": 57.4,
+  "55t/w1/aria": 51.6,
+  "55t/w1/hindsight": 24.0,
+  "55t/w2/baseline_a": 17.0,
+  "55t/w2/b_prime": 54.1,
+  "55t/w2/b_dprime": 44.2,
+  "55t/w2/aria": 43.4,
+  "55t/w2/hindsight": 19.7
+ }
+}
