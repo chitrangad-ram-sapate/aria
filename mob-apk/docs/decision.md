@@ -568,3 +568,15 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
   - 21 arrival checks;
   - 121 rule checks (77 new);
   - the end-to-end test drives a real Chromium GPS: refused 5.6 km away and at 200 m accuracy, unlocked at the shop, wrong code refused, right code submitted, admin sees the live position and confirms.
+
+### D-046 · Delivery point fixable until arrival; fresher readings on Android · Accepted
+**Context:** On the Pixel, a driver standing at the shop could not unlock Delivered, and an admin's "Save point" did not stick.
+- The admin's delivery sheet reused the stop as it was when opened. After "Make delivery code" (which bumps `seq`), "Save point" sent an old `seq`, and the rules refused it.
+- A stop that set off without a point could never get one, because only `assigned` stops accepted a point. Its arrival check stayed locked for good.
+- `watchPosition({ timeout: 30 s })` on Android becomes `setMaxUpdateDelayMillis(30 s)`, so readings arrived in late batches, older than the 15 s limit.
+**Decision:**
+- Admin actions (point, code, confirm, cancel, reassign) read the latest stop at the moment of the tap.
+- The admin may set or move the point while the stop is `assigned`, `in_transit` or `rejected`, but not after `arrived`. The admin is trusted and still confirms each delivery, so this does not weaken the check.
+- Android watch: `timeout` 5 s (no batching), `minimumUpdateInterval` 2 s. While a stop is on its way, the stop page asks for a fresh reading when none came in the last 8 s.
+**Tests:** 124 rule checks (3 new: point set while on the way, refused after arrival, refused with an old change number). The end-to-end test passes.
+**Needs:** `npm run deploy:rules` on the live project.
