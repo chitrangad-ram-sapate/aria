@@ -138,7 +138,9 @@ export async function restoreSaved(): Promise<boolean> {
   if (!saved?.csv) return false;
   const r = await engine.loadCsv(saved.csv, null);
   if (!r.ok) return false;
-  setDataset(r.scenario, { ...saved.meta, history: saved.history ?? null, restored: true });
+  const meta = { ...saved.meta };
+  if (meta.source === 'sample') meta.name = sampleName(r.scenario.scenario_id); // names saved by older versions were codes
+  setDataset(r.scenario, { ...meta, history: saved.history ?? null, restored: true });
   return true;
 }
 
@@ -148,9 +150,9 @@ export function forgetSaved() {
 
 export const network = () => state.networks.find((n) => n.network_id === state.networkId) ?? {};
 
-/** Which model produced a (town, product)'s demand. */
+/** Where a (town, product)'s demand forecast came from, in plain words. */
 export function forecastLabel(town?: string, product?: string): string {
   const fc = state.data?.forecast;
-  if (fc && (!town || fc.keys?.includes(`${town}|${product}`))) return fc.label;
-  return state.data?.source === 'sample' ? state.bundledForecast : 'forecast given in your CSV';
+  if (fc && (!town || fc.keys?.includes(`${town}|${product}`))) return fc.method === 'ml' ? 'learned from your past sales' : 'based on your last 28 days of sales';
+  return state.data?.source === 'sample' ? 'learned from past sales' : 'taken from your file';
 }

@@ -27,10 +27,10 @@ export function render(r: HTMLElement) {
 export function update() {
   if (!root) return;
   const cur = state.plan;
-  if (!state.scenario) return mount(root, h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'No data yet'), h('p', { class: 'small' }, 'Load your CSV on Home, then plan. The dashboard is built from that plan.')));
+  if (!state.scenario) return mount(root, h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'No data yet'), h('p', { class: 'small' }, 'Load your data on Home and plan tonight to see results here.')));
   if (!cur) {
     return mount(root, h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'Nothing planned yet'),
-      h('p', { class: 'small' }, `Plan tonight for ${state.scenarioId} and the dashboard fills in.`),
+      h('p', { class: 'small' }, `Plan tonight for ${state.scenarioId} to see the results.`),
       h('button', { class: 'btn primary block', disabled: !state.report?.valid || state.planBusy, onclick: planTonight }, state.planBusy ? 'Planning on this phone...' : ['Plan tonight', icon('arrow')])),
       historyCard(), replaySection());
   }
@@ -38,7 +38,7 @@ export function update() {
   if (!resp.aria) which = 'baseline_a';
   const dash = resp.dashboard?.[which];
   const other = resp.dashboard?.[which === 'aria' ? 'baseline_a' : 'aria'];
-  if (!dash) return mount(root, errorBox('This plan has no dashboard data. Plan again.'));
+  if (!dash) return mount(root, errorBox('Please plan again to see the results.'));
   const stale = isStale(resp);
   const k = dash.kpis, o = other?.kpis;
   const vs = (key: string) => {
@@ -124,7 +124,7 @@ function whatIfCard() {
   }
   return h('section', { class: 'card' },
     h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios against today'), badge('Forecast', 'warn')),
-    res && res.resp.scenario_hash !== state.report?.scenario_hash && h('p', { class: 'note' }, 'Computed for earlier inputs. Compare again in What if.'),
+    res && res.resp.scenario_hash !== state.report?.scenario_hash && h('p', { class: 'note' }, 'Made before your data changed. Compare again in What if.'),
     res && comparisonCharts(res.resp),
     sw && [h('h3', {}, 'Step by step'), sweepCharts(sw)]);
 }
@@ -151,7 +151,7 @@ function replaySection() {
     const days = Object.values(doc.window_days ?? {}).map((w: any) => `${w[0]} to ${w[1]}`).join(', ');
     mount(box, h('details', { class: 'card' },
       h('summary', {}, 'How ARIA did on past weeks'),
-      h('p', { class: 'small' }, `Every method was run on the real sales of ${days}, starting from the same stock. Each pays one bill: transport + storage + expired stock + lost sales. Lower is better. "Knowing the future" is shown only for comparison: no real method can do that.`),
+      h('p', { class: 'small' }, `Every method was tried on the real sales of ${days}, from the same stock. The bill adds up transport, storage, expired stock and lost sales: lower is better.`),
       badge('Past results', ''),
       segmented((doc.available_freight_points ?? [point]).map((p: string): [string, string] => [p, p === 'own' ? 'Each route\'s own truck' : `All ${truck(p).toLowerCase()}`]), point,
         async (v) => { replayDoc = await engine.replay(net, v); draw(); }, 'Freight rate'),

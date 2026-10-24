@@ -84,7 +84,7 @@ export function watchProfile(cb: (p: Profile | null, user: User | null) => void)
       const p = { uid: user.uid, ...snap.data() } as Profile;
       if (!touched) { touched = true; updateDoc(snap.ref, { lastSeen: serverTimestamp() }).catch(() => {}); }
       cb(p, user);
-    }, () => cb(null, user));
+    }, () => { user.reload().then(() => cb(null, user), () => signOut(auth)); }); // a deleted account goes back to sign-in
   });
   return () => { stopDoc?.(); stopAuth(); };
 }

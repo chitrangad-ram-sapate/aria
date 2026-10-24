@@ -17,6 +17,8 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 | `engine/app_tests/` | Tests of the data CSV, dashboard and What-if code |
 | `scripts/prepare.mjs` | Copies the Pyodide runtime + wheels into `public/pyodide/` and zips `engine/` into `public/aria-bundle.zip` |
 | `scripts/sync-engine.mjs` | `npm run sync-engine`: refreshes `engine/` from `../aria`, `../data`, `../tests` when they exist |
+| `scripts/make-icons.py` | Builds every app icon and splash screen from `assets/logo-source.png` (`python scripts/make-icons.py`) |
+| `src/dock.ts` | Glass dock motion: sliding active pill, page slide-and-fade, per-tab scroll memory, tap the open tab to go to the top |
 | `scripts/smoke.mjs` | Headless Chrome end-to-end check of the built app |
 | `android/`, `ios/` | Capacitor native projects |
 

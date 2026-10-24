@@ -99,5 +99,5 @@ function draw() {
       msg, submit('Send reset link'), back);
     body = form;
   }
-  mount(root, h('div', { class: 'brand' }, h('div', { class: 'logo' }, icon('truck')), h('h1', {}, 'ARIA'), h('p', { class: 'muted' }, "Plan tonight's deliveries")), body);
+  mount(root, h('div', { class: 'brand' }, h('img', { class: 'logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: 'ARIA' }), h('p', { class: 'muted' }, "Plan tonight's deliveries")), body);
 }

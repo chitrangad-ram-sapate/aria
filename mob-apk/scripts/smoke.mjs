@@ -104,6 +104,36 @@ try {
   await page.locator('svg.net g.node').first().click();
   await page.locator('.net-info').getByText('Depot · Depot A').waitFor();
   step('tap on a depot node shows its numbers');
+
+  // glass dock: pill under the active tab, quick switching, Home tapped twice goes back to the top
+  const pillUnder = async (name) => page.evaluate((n) => {
+    const pill = document.querySelector('nav.tabs .dock-pill'), btn = [...document.querySelectorAll('nav.tabs button.tab')].find((b) => b.textContent.includes(n));
+    const p = pill.getBoundingClientRect(), b = btn.getBoundingClientRect();
+    return Math.abs((p.left + p.width / 2) - (b.left + b.width / 2)) < 3 && getComputedStyle(pill).opacity === '1';
+  }, name);
+  await page.waitForTimeout(600);
+  expect(await pillUnder('Home'), 'pill not under Home');
+  for (const t of ['What if', 'Results', 'Team', 'Home', 'Results', 'What if', 'Home']) await page.locator('nav.tabs button.tab', { hasText: t }).click();
+  await page.waitForTimeout(700);
+  expect(await pillUnder('Home'), 'pill not under Home after quick switching');
+  expect(await page.locator('.page-ghost').count() === 0, 'leaving page left behind after quick switching');
+  expect(await page.getByText('To ship tonight').count() === 1, 'Home lost its plan after switching tabs');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2));
+  const mid = await page.evaluate(() => window.scrollY);
+  await tab('Results');
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await tab('Home');
+  await page.waitForTimeout(500);
+  const back = await page.evaluate(() => window.scrollY);
+  expect(Math.abs(back - mid) < 5, `Home scroll not kept: ${mid} -> ${back}`);
+  await tab('Home'); // already on Home: glide to the top
+  await page.waitForFunction(() => window.scrollY === 0, null, { timeout: 5000 });
+  await tab('Home'); // already at the top: a small nudge, no reload
+  expect(await page.getByText('To ship tonight').count() === 1, 'Home re-rendered on re-tap');
+  const goClicks = await page.evaluate(async () => { let n = 0; const b = document.querySelector('nav.tabs button.go'); b.addEventListener('click', () => n++); b.click(); await new Promise((r) => setTimeout(r, 50)); return n; });
+  expect(goClicks === 1, 'centre button fired more than once');
+  await page.getByText('To ship tonight').waitFor({ timeout: 180_000 });
+  step(`dock: pill follows the tab, quick switching is clean, Home keeps its scroll (${mid}px) and a second tap glides to the top`);
   await shot('03-home-A');
 
   await tab('Results');
@@ -135,7 +165,7 @@ try {
   // 4. stock-only update keeps the rest
   await tab('Home');
   await upload('stock_only.csv', 'depot_id,product_id,qty_units,days_left\nD0,P0,500,5\nD1,P3,80,5\n');
-  await page.getByText(/kept .*products/).waitFor({ timeout: 60_000 });
+  await page.getByText('Last upload updated: stock.').waitFor({ timeout: 60_000 });
   await page.getByText('2 stock lots').waitFor();
   step('stock-only CSV updates the stock table and keeps products, depots, towns, routes and demand');
 
@@ -185,9 +215,9 @@ try {
   // a truck restriction on a medium-truck route of the selected scenario
   const routeSel = page.locator('select[aria-label="Route change"]');
   await routeSel.selectOption('restrict');
-  await page.locator('select[aria-label="Largest truck allowed"]').or(page.getByText('so a restriction cannot change it')).first().waitFor();
+  await page.locator('select[aria-label="Largest truck allowed"]').or(page.getByText('This route already uses the smallest truck')).first().waitFor();
   const opts = await page.locator('select[aria-label="Largest truck allowed"]').count();
-  const smallest = await page.getByText('so a restriction cannot change it').count();
+  const smallest = await page.getByText('This route already uses the smallest truck').count();
   expect(opts + smallest === 1, 'restriction neither offered options nor explained why not');
   if (opts) await page.getByRole('button', { name: 'Add route change' }).click();
   await page.getByRole('button', { name: /^Compare 3 scenarios/ }).click();
@@ -317,6 +347,14 @@ try {
   await page.getByRole('button', { name: 'Pause this driver' }).click();
   await dpage.getByText('Your account is paused').waitFor({ timeout: 30_000 });
   step('admin pauses the driver; the driver is locked out at once');
+
+  // reduced motion: pages switch at once, nothing slides
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await tab('Results');
+  expect(await page.locator('.page-ghost').count() === 0 && (await page.evaluate(() => document.getAnimations().length)) === 0, 'animations run with reduced motion');
+  await tab('Team');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  step('with reduce motion on, pages change without sliding');
 
   // 14. sign out and back in as the admin
   await page.locator('header button[aria-label="Account"]').click();

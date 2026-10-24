@@ -52,7 +52,7 @@ function draw() {
   mount(root,
     h('section', { class: 'card' },
       h('p', { class: 'eyebrow' }, 'Got a plan from someone?'),
-      h('p', { class: 'small' }, 'Open a .svcr plan file. ARIA checks it on this phone before showing anything: nothing altered, inputs match, and the plan is still valid.'),
+      h('p', { class: 'small' }, 'Open a .svcr plan file. ARIA checks it is safe to use before showing it.'),
       input, h('label', { for: 'svcr-file', class: 'btn primary block', role: 'button', tabIndex: 0, onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') input.click(); } }, 'Open a plan file'),
       busy && h('p', { class: 'muted', 'aria-live': 'polite' }, busy)),
     current && view(current),

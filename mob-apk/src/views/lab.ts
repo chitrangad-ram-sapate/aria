@@ -57,7 +57,7 @@ export function render(r: HTMLElement) {
   mount(root,
     h('section', { class: 'card' },
       h('p', { class: 'eyebrow' }, 'Ask "what if...?"'),
-      h('p', { class: 'small' }, 'Start from your data as it is today. Each scenario changes a few things. ARIA plans every scenario on this phone and shows what changes, in units, rupees and %.'),
+      h('p', { class: 'small' }, 'Start from your data as it is today. Each scenario changes a few things, and ARIA shows what changes in units, rupees and %.'),
       h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Scenarios' },
         h('span', { class: 'chip base' }, 'Today'),
         lab.variants.map((x, i) => h('button', { class: `chip${x === v ? ' on' : ''}`, role: 'tab', 'aria-selected': String(x === v), style: `--c:${seriesColor(i + 1)}`,
@@ -142,8 +142,8 @@ function routeChanges(v: Variant) {
         select(ts, t, (x) => { t = x; draw(); }, 'Route to town'),
         select([['close', 'Close this route'], ['restrict', 'Allow only smaller trucks']], kind, (x) => { kind = x; draw(); }, 'Route change'),
         kind === 'restrict' && (options.length ? select(options.map((o): [string, string] => [o, truck(o)]), veh, (x) => { veh = x; }, 'Largest truck allowed') : h('span', {}))),
-      kind === 'restrict' && !options.length && h('p', { class: 'note' }, `This route already uses ${route ? truck(route.vehicle_class).toLowerCase() : 'the smallest truck'}, the dearest class per tonne-km, so a restriction cannot change it. Pick another route or close it instead.`),
-      kind === 'restrict' && options.length > 0 && h('p', { class: 'note' }, `Now: ${truck(route.vehicle_class)}. Only classes that cost more per tonne-km are offered: a cheaper class would change nothing.`),
+      kind === 'restrict' && !options.length && h('p', { class: 'note' }, 'This route already uses the smallest truck. Pick another route, or close this one instead.'),
+      kind === 'restrict' && options.length > 0 && h('p', { class: 'note' }, `Now: ${truck(route.vehicle_class)}.`),
       h('button', { class: 'btn small block', disabled: !t || (kind === 'restrict' && !veh), onclick: () => {
         if (kind === 'close') p.closures = [...(p.closures ?? []).filter((c: string[]) => !(c[0] === g && c[1] === t)), [g, t]];
         else p.restrictions = [...(p.restrictions ?? []).filter((c: string[]) => !(c[0] === g && c[1] === t)), [g, t, veh]];
@@ -174,10 +174,10 @@ async function compare() {
   render(root);
   try {
     const r = await engine.compare(sc(), lab.variants.map((v) => ({ id: v.id, name: v.name, params: v.params })));
-    if (r.valid === false) lab.error = (r.errors ?? []).map((e: Json) => e.message).join('\n');
-    else lab.result = { rid: my, resp: r, key };
+    if (r.valid === false) lab.error = 'Your data needs fixing on Home first.';
+    else lab.result ={ rid: my, resp: r, key };
   } catch (e: any) {
-    lab.error = `Comparison failed: ${e.message}`;
+    lab.error = 'The comparison did not work. Please try again.';
   } finally {
     lab.busy = false;
     if (pending) { pending = false; window.setTimeout(compare, 0); }
@@ -223,14 +223,14 @@ function results() {
   };
   const stale = res.key !== variantKey();
   return h('div', { class: stale ? 'stale' : '' },
-    failed.map((f) => errorBox(`${f.name}: ${f.error}`)),
+    failed.map((f) => errorBox(`${f.name}: this scenario could not be planned. Check its route changes.`)),
     h('section', { class: 'card' }, h('h2', {}, 'Which option does best?'),
       h('ul', { class: 'best' }, best('expected_fill_rate', true), best('expected_lost_margin_paise', false), best('freight_paise', false), best('at_risk_units_left', false)),
       h('p', { class: 'note' }, 'These are forecasts for each scenario, not real results.')),
     h('div', { class: 'section-head' }, h('h2', {}, 'Each scenario against today')),
     ok.map((v) => h('section', { class: 'card' },
       h('div', { class: 'row between' }, h('strong', {}, v.name), v.verified ? badge('Verified plan', 'ok') : badge('Not verified', 'bad')),
-      v.recommended !== 'aria' && h('p', { class: 'note' }, `ARIA had no verified plan here (${v.aria_withheld}); the usual method is shown.`),
+      v.recommended !== 'aria' && h('p', { class: 'note' }, 'ARIA could not make a safe plan here, so the usual method is shown.'),
       h('div', { class: 'kpi-grid' }, KPIS.filter((k) => v.kpis[k.key] != null).slice(0, 6).map((k) => kpiCard(k.label, k.fmt(v.kpis[k.key]), `today ${k.fmt(base.kpis[k.key])}`, chip(v.diff[k.key], k)))))),
     h('section', { class: 'card' }, h('h2', {}, 'Charts'), comparisonCharts(resp)),
     h('details', { class: 'card' }, h('summary', {}, 'Full comparison table'),
@@ -256,7 +256,7 @@ function sweepCard() {
     h('input', { type: 'number', value: v, min, max, 'aria-label': l, onchange: (e: Event) => { const n = Number((e.target as HTMLInputElement).value); if (Number.isFinite(n)) set(n); } }));
   return h('section', { class: 'card' },
     h('h2', {}, 'Step by step: one change over a range'),
-    h('p', { class: 'small muted' }, 'Pick one input, a range and how many steps. ARIA plans every step so you can see where things start to break.'),
+    h('p', { class: 'small muted' }, 'Pick one thing to change, a range and how many steps, and see how the results move.'),
     select(Object.entries(SWEEP).map(([k, c]): [string, string] => [k, c.label]), sweepParam, (k) => { sweepParam = k; sweepFrom = SWEEP[k].from; sweepTo = SWEEP[k].to; render(root); }, 'Input to vary'),
     h('div', { class: 'grid3' },
       nums(sweepFrom, (n) => { sweepFrom = n; }, `From (${cfg.unit})`),
@@ -279,10 +279,10 @@ async function runSweep() {
   render(root);
   try {
     const r = await engine.compare(sc(), values.map((v) => ({ id: String(v), name: `${v}`, params: v === neutral ? {} : { [sweepParam]: v } })));
-    if (r.valid === false) lab.error = (r.errors ?? []).map((e: Json) => e.message).join('\n');
+    if (r.valid === false) lab.error = 'Your data needs fixing on Home first.';
     else lab.sweep = { param: sweepParam, values, resp: r, key: JSON.stringify([currentHash(), sweepParam, values]) };
   } catch (e: any) {
-    lab.error = `Steps failed: ${e.message}`;
+    lab.error = 'The steps did not work. Please try again.';
   } finally {
     lab.sweepBusy = false;
     render(root);
@@ -296,7 +296,7 @@ export function sweepCharts(sw: { param: string; values: number[]; resp: Json })
   const val = (key: string, scale = 1) => rows.map((r) => (r.error || r.kpis[key] == null ? null : r.kpis[key] * scale));
   const failed = rows.filter((r) => r.error);
   return [
-    failed.length > 0 && h('p', { class: 'note' }, `${failed.length} step(s) could not be planned: ${failed[0].error}`),
+    failed.length > 0 && h('p', { class: 'note' }, `${failed.length} step(s) could not be planned.`),
     h('div', { class: 'viz-grid' },
       line('Demand met', xs, [{ name: 'Fill rate', values: val('expected_fill_rate', 100) }], (v) => `${v.toFixed(1)}%`, `${cfg.label} (${cfg.unit})`, 'Fill rate (%)'),
       line('Lost sales value', xs, [{ name: 'Lost sales', values: val('expected_lost_margin_paise', 0.01) }], (v) => `₹${compact(v)}`, `${cfg.label} (${cfg.unit})`, 'Lost sales value (₹)'),

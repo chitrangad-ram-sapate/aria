@@ -60,11 +60,11 @@ function dataCard() {
   const samplePicker = samples.length > 0 && h('details', { class: 'small' }, h('summary', {}, 'Try a sample dataset instead'),
     h('div', { class: 'grid2' }, select(samples, sample, (v) => { sample = v; }, 'Sample dataset'),
       h('button', { class: 'btn', disabled: state.dataBusy, onclick: () => loadSample(sample) }, 'Load sample')),
-    h('p', { class: 'note' }, 'Samples are loaded through the same CSV reader as your own files.'));
+  );
   if (!sc) {
     return h('section', { class: 'card' },
       h('p', { class: 'eyebrow' }, 'Start with your data'),
-      h('p', { class: 'small' }, 'One CSV file holds your products, depots, towns, routes, stock and demand (or past sales). ARIA plans from exactly what is in it.'),
+      h('p', { class: 'small' }, 'One CSV file with your products, depots, towns, routes, stock and demand (or past sales).'),
       upload, errs,
       h('div', { class: 'grid2' },
         h('button', { class: 'btn', onclick: downloadTemplate }, icon('share'), 'Get a template'),
@@ -76,11 +76,11 @@ function dataCard() {
     h('div', { class: 'row between' }, h('div', {}, h('p', { class: 'eyebrow' }, d?.source === 'sample' ? 'Sample data' : 'Your data'), h('strong', {}, state.scenarioId)),
       badge(d?.source === 'sample' ? 'sample' : 'from CSV', d?.source === 'sample' ? 'warn' : 'ok')),
     h('p', { class: 'small muted' }, counts),
-    d?.kept?.length > 0 && h('p', { class: 'note' }, `Last upload replaced ${Object.keys(d.sections ?? {}).join(', ')}; kept ${d.kept.join(', ')} from before.`),
-    d?.forecast && h('p', { class: 'note' }, `Demand forecast from ${num(d.forecast.days)} days of sales (${d.forecast.first} to ${d.forecast.last}): ${d.forecast.label}${d.forecast.note ? ` (${d.forecast.note})` : ''}.`),
+    d?.kept?.length > 0 && h('p', { class: 'note' }, `Last upload updated: ${Object.keys(d.sections ?? {}).join(', ')}.`),
+    d?.forecast && h('p', { class: 'note' }, `Demand forecast from ${num(d.forecast.days)} days of sales (${d.forecast.first} to ${d.forecast.last}), ${forecastLabel()}.`),
     d?.warnings?.length > 0 && h('details', { class: 'small' }, h('summary', {}, `${d.warnings.length} note(s) about the file`), h('ul', {}, d.warnings.map((w: string) => h('li', {}, w)))),
     upload, errs,
-    h('p', { class: 'note' }, 'A file with only some tables (for example just stock) updates those and keeps the rest.'),
+    h('p', { class: 'note' }, 'To update only part of your data, such as stock, upload a file with just that table.'),
     h('div', { class: 'grid2' },
       h('button', { class: 'btn', onclick: downloadCurrent }, icon('share'), 'Download as CSV'),
       h('button', { class: 'btn', onclick: formatSheet }, icon('list'), 'CSV format')),
@@ -99,14 +99,15 @@ async function uploadCsv(input: HTMLInputElement) {
 async function downloadTemplate() {
   try {
     const small = state.scenarios.find((x) => /edge/.test(x.scenario_id)) ?? state.scenarios[0];
-    await shareFile('aria_data_template.csv', await engine.sampleCsv(small.scenario_id), 'text/csv');
-  } catch (e: any) { toast(`Could not create the template: ${e.message}`); }
+    const csv = (await engine.sampleCsv(small.scenario_id)).replace(/^name,.*$/m, 'name,My data').replace(/^network_id,.*$/m, 'network_id,my_network');
+    await shareFile('aria_data_template.csv', csv, 'text/csv');
+  } catch { toast('Could not create the template. Please try again.'); }
 }
 
 async function downloadCurrent() {
   try {
     await shareFile(`${String(state.scenarioId).replace(/[^\w-]+/g, '_') || 'aria_data'}.csv`, await engine.exportCsv(state.scenario), 'text/csv');
-  } catch (e: any) { toast(`Could not export: ${e.message}`); }
+  } catch { toast('Could not save the file. Please try again.'); }
 }
 
 const ABOUT: Record<string, string> = {
@@ -245,7 +246,7 @@ export async function planTonight() {
       show = r.aria ? 'aria' : 'baseline_a';
     }
   } catch (e: any) {
-    if (my === state.planRid) state.planError = `Planning failed: ${e.message}`;
+    if (my === state.planRid) state.planError = 'Planning did not work. Please try again.';
   } finally {
     if (my === state.planRid) state.planBusy = false;
     notify();
@@ -281,7 +282,7 @@ function goalsCard(resp: Json) {
       goal('Transport cost (freight)', a.freight_paise, b.freight_paise, rupees),
       goal('Stock left to expire (wastage)', a.at_risk_units_left, b.at_risk_units_left, num),
       goal('Expected write-off', a.at_risk_writeoff_paise, b.at_risk_writeoff_paise, rupees),
-      h('p', { class: 'note' }, 'Tonight, under the demand forecast. The usual method ships forecast plus a fixed safety buffer from the nearest depot. ARIA ranks every unit by what it is worth after freight, so it may skip a few low-value units on costly routes: compare lost sales value, not only units.'),
+      h('p', { class: 'note' }, 'For tonight\'s expected demand. The usual method sends the forecast plus a fixed extra amount from the nearest depot.'),
       per?.aria && per?.baseline_a && [h('h3', {}, 'Over 8 past weeks of real sales'),
         goal('Total cost bill', per.aria.bill_paise, per.baseline_a.bill_paise, rupees),
         goal('Units written off', per.aria.writeoff_units, per.baseline_a.writeoff_units, num),
@@ -329,7 +330,7 @@ function drawResult() {
         h('button', { class: 'tile', disabled: stale || !verified, onclick: () => shareSheet(shown, resp) }, icon('share'), 'Share plan'),
         h('button', { class: 'tile', onclick: stockSheet }, icon('edit'), 'Edit stock')),
       stale && h('p', { class: 'note' }, 'Inputs changed after planning. Plan again before sharing.'),
-      h('p', { class: 'note' }, `Planned on this phone in ${(resp.solve_ms / 1000).toFixed(1)} s · ${shown === aria ? 'ARIA' : 'usual method'}`)),
+      h('p', { class: 'note' }, `Planned in ${(resp.solve_ms / 1000).toFixed(1)} s · ${shown === aria ? 'ARIA plan' : 'usual method'}`)),
     resp.dashboard?.[shown === aria ? 'aria' : 'baseline_a'] && h('section', { class: 'card' }, networkDiagram(resp.dashboard[shown === aria ? 'aria' : 'baseline_a'])),
     goalsCard(resp),
     h('div', { class: 'section-head' }, h('h2', {}, 'Shipments by depot', h('span', { class: 'count' }, num(depots.length))), h('span', { class: 'small muted' }, 'Units')),
@@ -423,7 +424,7 @@ export async function explainSheet(p: Json, row: Json) {
   try {
     c = await engine.explain(p.plan_id, row.town_id, row.product_id);
   } catch (e: any) {
-    return openSheet(head, errorBox(e.message));
+    return openSheet(head, errorBox('Could not show the details. Plan again and retry.'));
   }
   const reason = c.reason;
   const went: Json[] = reason?.facts?.recipients ?? [];
@@ -433,7 +434,7 @@ export async function explainSheet(p: Json, row: Json) {
     kv([['Already in town', `${num(c.on_hand_units)} units`], ['Sent tonight', `${num(c.shipped_units)} units`], ['Transport cost per unit', rupees(c.freight_per_unit_paise)],
       ['Share of demand worth covering on this route', c.tau_star == null ? '-' : `${Math.round(c.tau_star * 100)}%`]]),
     c.forecast && [h('h3', {}, 'Expected demand'),
-      h('p', { class: 'muted small' }, `Most likely ${fmt('q', c.forecast.quantiles[4])} units; almost surely between ${fmt('q', c.forecast.quantiles[0])} and ${fmt('q', c.forecast.quantiles[8])}. Forecast by: ${forecastLabel(c.town_id, c.product_id)}.`),
+      h('p', { class: 'muted small' }, `Most likely ${fmt('q', c.forecast.quantiles[4])} units; almost surely between ${fmt('q', c.forecast.quantiles[0])} and ${fmt('q', c.forecast.quantiles[8])}. Forecast ${forecastLabel(c.town_id, c.product_id)}.`),
       bandBar(c.forecast.quantiles, c.forecast.quantiles[8] || 1)],
     c.life_on_arrival?.length > 0 && [h('h3', {}, 'Stock sent'), table(c.life_on_arrival,
       [['godown_id', 'From', (v) => godownName(v)], ['lot_id', 'Lot'], ['units', 'Units'], ['life_on_arrival', 'Days left on arrival']])],
@@ -444,7 +445,7 @@ function forecasts() {
   const rows: Json[] = state.scenario?.demand ?? [];
   const max = Math.max(1, ...rows.map((d) => d.quantiles[8] ?? 0));
   const model = (r: Json) => forecastLabel(r.town_id, r.product_id);
-  return [h('p', { class: 'muted small' }, `Demand per town and product: the bar shows the likely range (darkest = most likely half), the tick the single most likely number. Forecast by: ${forecastLabel()}.`),
+  return [h('p', { class: 'muted small' }, `Demand per town and product: the bar shows the likely range, the tick the most likely number. Forecast ${forecastLabel()}.`),
     h('ul', { class: 'list-cards' }, rows.slice(0, 40).map((d) => h('li', {},
       h('div', { class: 'row between small' }, h('span', {}, `${townName(d.town_id)} · ${d.product_id}`), h('span', { class: 'muted' }, `about ${fmt('q', d.quantiles[4])}`)),
       bandBar(d.quantiles, max)))),
