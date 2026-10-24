@@ -57,16 +57,16 @@ export function render(r: HTMLElement) {
   mount(root,
     h('section', { class: 'card' },
       h('p', { class: 'eyebrow' }, 'Ask "what if...?"'),
-      h('p', { class: 'small' }, 'The baseline is your data as loaded. Each scenario changes a few inputs. ARIA re-plans every scenario on this phone and shows what changes, in units, rupees and %.'),
+      h('p', { class: 'small' }, 'Start from your data as it is today. Each scenario changes a few things. ARIA plans every scenario on this phone and shows what changes, in units, rupees and %.'),
       h('div', { class: 'chips', role: 'tablist', 'aria-label': 'Scenarios' },
-        h('span', { class: 'chip base' }, 'Baseline'),
+        h('span', { class: 'chip base' }, 'Today'),
         lab.variants.map((x, i) => h('button', { class: `chip${x === v ? ' on' : ''}`, role: 'tab', 'aria-selected': String(x === v), style: `--c:${seriesColor(i + 1)}`,
           onclick: () => { lab.selected = x.id; render(root); } }, x.name))),
       h('details', { class: 'add', open: lab.variants.length === 0 }, h('summary', { class: 'btn block' }, '+ Add a scenario'),
         h('div', { class: 'preset-grid' }, PRESETS.map((p) => h('button', { class: 'btn small', onclick: () => addVariant(p.name, p.params()) }, p.name))))),
     v && editor(v),
     h('section', { class: 'card', 'aria-live': 'polite' },
-      h('div', { class: 'row between' }, h('h2', {}, 'Compare with the baseline'),
+      h('div', { class: 'row between' }, h('h2', {}, 'Compare with today'),
         lab.busy ? badge('Re-planning...', 'warn') : lab.result && lab.result.key !== variantKey() ? badge('Out of date', 'bad') : lab.result ? badge('Up to date', 'ok') : null),
       h('button', { class: 'btn primary block', disabled: lab.busy || !lab.variants.length || !state.report?.valid || state.validating, onclick: compare },
         lab.busy ? 'Re-planning on this phone...' : lab.variants.length ? `Compare ${lab.variants.length} scenario${lab.variants.length > 1 ? 's' : ''}` : 'Add a scenario to compare'),
@@ -112,7 +112,7 @@ function editor(v: Variant) {
       select(towns, p.demand_town ?? '*', set('demand_town'), 'Demand change applies to town')),
     h('h3', {}, 'Depot loading capacity'),
     slider('Capacity', p.capacity_pct ?? 100, 0, 200, 5, '%', set('capacity_pct'),
-      anyCap ? 'Percent of each depot\'s capacity in your data (depots with no limit: of what they ship in the baseline).' : 'Your depots have no loading limit, so this is a percent of what each one ships in the baseline.'),
+      anyCap ? 'Percent of each depot\'s capacity in your data (depots with no limit: of what they ship today).' : 'Your depots have no loading limit, so this is a percent of what each one ships today.'),
     select(depots, p.capacity_depot ?? '*', set('capacity_depot'), 'Capacity change applies to depot'),
     h('h3', {}, 'Costs and stock'),
     slider('Change in freight rates', p.freight_pct ?? 0, -50, 200, 5, '%', set('freight_pct'), `Now: ${Object.entries(s.policy?.freight_paise_per_tkm ?? {}).map(([k, r]) => `${truck(k)} ₹${(Number(r) / 100).toFixed(2)}/t-km`).join(' · ')}`),
@@ -201,7 +201,7 @@ export function comparisonCharts(resp: Json) {
       metric('expected_lost_margin_paise', 'Lost sales value'),
       metric('freight_paise', 'Freight cost'),
       metric('units_shipped', 'Units shipped')),
-    rows.length > 1 && changeKeys.length > 0 && hbars('Change from the baseline (%)', changeKeys.map((k) => k.label),
+    rows.length > 1 && changeKeys.length > 0 && hbars('Change from today (%)', changeKeys.map((k) => k.label),
       rows.slice(1).map((r, i) => ({ name: r.name, values: changeKeys.map((k) => r.diff?.[k.key]?.pct ?? null), color: colour(i + 1) })),
       (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`, '% change', 'Bars right of 0 are increases. Whether that is good depends on the measure (see table).'),
     hbars('Units loaded per depot', resp.baseline.depots.map((d: Json) => d.name),
@@ -211,7 +211,7 @@ export function comparisonCharts(resp: Json) {
 
 function results() {
   const res = lab.result;
-  if (!res) return lab.busy ? h('section', { class: 'card' }, h('p', { class: 'muted' }, 'Planning the baseline and every scenario...')) : null;
+  if (!res) return lab.busy ? h('section', { class: 'card' }, h('p', { class: 'muted' }, 'Planning today and every scenario...')) : null;
   const resp = res.resp, base = resp.baseline;
   const ok: Json[] = resp.variants.filter((v: Json) => !v.error);
   const failed: Json[] = resp.variants.filter((v: Json) => v.error);
@@ -226,23 +226,23 @@ function results() {
     failed.map((f) => errorBox(`${f.name}: ${f.error}`)),
     h('section', { class: 'card' }, h('h2', {}, 'Which option does best?'),
       h('ul', { class: 'best' }, best('expected_fill_rate', true), best('expected_lost_margin_paise', false), best('freight_paise', false), best('at_risk_units_left', false)),
-      h('p', { class: 'note' }, 'Scenario projections: plans under changed inputs, not actual results.')),
-    h('div', { class: 'section-head' }, h('h2', {}, 'Each scenario against the baseline')),
+      h('p', { class: 'note' }, 'These are forecasts for each scenario, not real results.')),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Each scenario against today')),
     ok.map((v) => h('section', { class: 'card' },
       h('div', { class: 'row between' }, h('strong', {}, v.name), v.verified ? badge('Verified plan', 'ok') : badge('Not verified', 'bad')),
       v.recommended !== 'aria' && h('p', { class: 'note' }, `ARIA had no verified plan here (${v.aria_withheld}); the usual method is shown.`),
-      h('div', { class: 'kpi-grid' }, KPIS.filter((k) => v.kpis[k.key] != null).slice(0, 6).map((k) => kpiCard(k.label, k.fmt(v.kpis[k.key]), `baseline ${k.fmt(base.kpis[k.key])}`, chip(v.diff[k.key], k)))))),
+      h('div', { class: 'kpi-grid' }, KPIS.filter((k) => v.kpis[k.key] != null).slice(0, 6).map((k) => kpiCard(k.label, k.fmt(v.kpis[k.key]), `today ${k.fmt(base.kpis[k.key])}`, chip(v.diff[k.key], k)))))),
     h('section', { class: 'card' }, h('h2', {}, 'Charts'), comparisonCharts(resp)),
     h('details', { class: 'card' }, h('summary', {}, 'Full comparison table'),
       table(KPIS.filter((k) => base.kpis[k.key] != null).map((k) => Object.fromEntries([['m', k.label], ['b', k.fmt(base.kpis[k.key])],
         ...ok.map((v, i) => [`v${i}`, v.kpis[k.key] == null ? '-' : `${k.fmt(v.kpis[k.key])} (${v.diff[k.key]?.pct == null ? k.diff(v.diff[k.key]?.abs ?? 0) : `${v.diff[k.key].pct > 0 ? '+' : ''}${v.diff[k.key].pct.toFixed(1)}%`})`])])),
-        [['m', 'Measure'], ['b', 'Baseline'], ...ok.map((v, i): [string, string] => [`v${i}`, v.name])])));
+        [['m', 'Measure'], ['b', 'Today'], ...ok.map((v, i): [string, string] => [`v${i}`, v.name])])));
 }
 
 // ---------- step-by-step sweep ----------
 const SWEEP: Record<string, { label: string; from: number; to: number; unit: string }> = {
   demand_pct: { label: 'Change in demand', from: -20, to: 40, unit: '%' },
-  capacity_pct: { label: 'Depot capacity', from: 50, to: 120, unit: '% of baseline' },
+  capacity_pct: { label: 'Depot capacity', from: 50, to: 120, unit: '% of today' },
   freight_pct: { label: 'Change in freight rates', from: 0, to: 100, unit: '%' },
   stock_loss_pct: { label: 'Stock lost', from: 0, to: 50, unit: '%' },
 };
@@ -302,7 +302,7 @@ export function sweepCharts(sw: { param: string; values: number[]; resp: Json })
       line('Lost sales value', xs, [{ name: 'Lost sales', values: val('expected_lost_margin_paise', 0.01) }], (v) => `₹${compact(v)}`, `${cfg.label} (${cfg.unit})`, 'Lost sales value (₹)'),
       line('Freight cost', xs, [{ name: 'Freight', values: val('freight_paise', 0.01) }], (v) => rupees(v * 100), `${cfg.label} (${cfg.unit})`, 'Freight (₹)'),
       line('Units shipped and short', xs, [{ name: 'Shipped', values: val('units_shipped') }, { name: 'Short', values: val('shortfall_units') }], num, `${cfg.label} (${cfg.unit})`, 'Units')),
-    h('p', { class: 'note' }, `Baseline values: fill rate ${kpi('expected_fill_rate').fmt(sw.resp.baseline.kpis.expected_fill_rate)}, freight ${rupees(sw.resp.baseline.kpis.freight_paise)}. Projections, not actual results.`),
+    h('p', { class: 'note' }, `Today: demand met ${kpi('expected_fill_rate').fmt(sw.resp.baseline.kpis.expected_fill_rate)}, freight ${rupees(sw.resp.baseline.kpis.freight_paise)}. These are forecasts, not real results.`),
   ];
 }
 

@@ -7,12 +7,12 @@ import { donut, hbars, histogram, kpi as kpiCard, line, seriesColor } from '../c
 import { engine } from '../engine';
 import { KPIS, kpi } from '../kpis';
 import { isStale, state } from '../state';
-import { Json, badge, errorBox, fmt, h, icon, mount, num, rupees, segmented, table } from '../ui';
+import { Json, badge, errorBox, h, icon, mount, num, rupees, segmented, table } from '../ui';
 import { comparisonCharts, sweepCharts } from './lab';
 import { networkDiagram, truck } from './network';
 import { planTonight, townName } from './plan';
 
-const POLICY: Record<string, string> = { aria: 'ARIA', baseline_a: 'Usual method (a)', b_prime: 'Forecast + buffer (b′)', b_dprime: 'Forecast + FEFO (b″)', hindsight: 'Perfect hindsight (c)' };
+const POLICY: Record<string, string> = { aria: 'ARIA', baseline_a: 'Usual method', b_prime: 'Forecast + safety stock', b_dprime: 'Forecast, oldest stock first', hindsight: 'Knowing the future' };
 let which: 'aria' | 'baseline_a' = 'aria';
 let root: HTMLElement;
 let replayDoc: Json = null;
@@ -54,7 +54,7 @@ export function update() {
         stale ? badge('Out of date', 'bad') : k.verified ? badge('Verified', 'ok') : badge('Not verified', 'bad')),
       resp.aria && segmented([['aria', 'ARIA plan'], ['baseline_a', 'Usual method']], which, (v) => { which = v as any; update(); }, 'Plan shown'),
       h('ul', { class: 'legend-kinds small' },
-        h('li', {}, badge('Data', ''), ' from your CSV'), h('li', {}, badge('Calculated', 'ok'), ' by the planner'), h('li', {}, badge('Projection', 'warn'), ' from What-if')),
+        h('li', {}, badge('Data', ''), ' from your CSV'), h('li', {}, badge('Calculated', 'ok'), ' by the planner'), h('li', {}, badge('Forecast', 'warn'), ' from What if')),
       stale && h('p', { class: 'note' }, 'Inputs changed after planning. Plan again to refresh every chart.')),
     h('div', { class: 'section-head' }, h('h2', {}, 'Key numbers'), badge('Calculated', 'ok')),
     h('div', { class: 'kpi-grid' },
@@ -100,10 +100,10 @@ function flowchart(p: Json, k: Json, resp: Json) {
   return h('figure', { class: 'viz' }, h('figcaption', {}, h('strong', {}, 'How this plan was made'), h('span', { class: 'small muted' }, 'Each step with the numbers from tonight')),
     h('ol', { class: 'flow' },
       step('1 · Your data', `${num(p.products)} products · ${num(p.lots)} stock lots · ${num(p.active_routes)} of ${num(p.routes)} routes open · ${num(p.demand_pairs)} demand forecasts`),
-      step('2 · Worth of each unit', 'For every route, the sale a unit protects is weighed against its freight and the risk it expires (service level τ*).'),
-      step('3 · Best total value', `Linear program, stage 1: ${p.stage1}`, p.stage1 === 'Optimal' || p.stage1 === 'n/a' ? 'ok' : 'warn'),
-      step('4 · Freshest stock first', `Stage 2 tie-break: ${p.stage2}`, p.stage2 === 'Optimal' || p.stage2 === 'n/a' ? 'ok' : 'warn'),
-      step('5 · Independent check', p.verified ? 'All 8 safety rules passed' : `${p.violations} rule(s) failed: plan withheld`, p.verified ? 'ok' : 'bad'),
+      step('2 · Worth of each unit', 'For every route, the sale a unit protects is weighed against what it costs to send and the risk it expires.'),
+      step('3 · Best total value', p.stage1 === 'Optimal' || p.stage1 === 'n/a' ? 'The plan worth the most was found' : 'No best plan found', p.stage1 === 'Optimal' || p.stage1 === 'n/a' ? 'ok' : 'warn'),
+      step('4 · Freshest stock first', p.stage2 === 'Optimal' || p.stage2 === 'n/a' ? 'Older stock goes first wherever it costs nothing extra' : 'Skipped tonight', p.stage2 === 'Optimal' || p.stage2 === 'n/a' ? 'ok' : 'warn'),
+      step('5 · Safety check', p.verified ? 'All 8 safety rules passed' : `${p.violations} safety rule(s) failed, so this plan is not used`, p.verified ? 'ok' : 'bad'),
       step('6 · Plan', `${num(p.rows)} pick rows · ${num(k.units_shipped)} units · ${rupees(k.freight_paise)} freight · planned in ${(resp.solve_ms / 1000).toFixed(1)} s`, 'ok')));
 }
 
@@ -119,11 +119,11 @@ function historyCard() {
 function whatIfCard() {
   const res = state.lab.result, sw = state.lab.sweep;
   if (!res && !sw) {
-    return h('section', { class: 'card' }, h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios'), badge('Projection', 'warn')),
+    return h('section', { class: 'card' }, h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios'), badge('Forecast', 'warn')),
       h('p', { class: 'note' }, 'Build scenarios in What if (demand up, less capacity, a closed route...) and their comparison and step-by-step trends appear here too.'));
   }
   return h('section', { class: 'card' },
-    h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios against the baseline'), badge('Projection', 'warn')),
+    h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios against today'), badge('Forecast', 'warn')),
     res && res.resp.scenario_hash !== state.report?.scenario_hash && h('p', { class: 'note' }, 'Computed for earlier inputs. Compare again in What if.'),
     res && comparisonCharts(res.resp),
     sw && [h('h3', {}, 'Step by step'), sweepCharts(sw)]);
@@ -150,19 +150,17 @@ function replaySection() {
     const names = Object.keys(per);
     const days = Object.values(doc.window_days ?? {}).map((w: any) => `${w[0]} to ${w[1]}`).join(', ');
     mount(box, h('details', { class: 'card' },
-      h('summary', {}, 'Historical test: every method on past demand'),
-      h('p', { class: 'small' }, `Replayed on real demand (${days}) for this sample network, from the same stock. One bill each: freight + holding + write-off + lost sales. Lower is better.`),
-      badge('Historical replay', ''),
+      h('summary', {}, 'How ARIA did on past weeks'),
+      h('p', { class: 'small' }, `Every method was run on the real sales of ${days}, starting from the same stock. Each pays one bill: transport + storage + expired stock + lost sales. Lower is better. "Knowing the future" is shown only for comparison: no real method can do that.`),
+      badge('Past results', ''),
       segmented((doc.available_freight_points ?? [point]).map((p: string): [string, string] => [p, p === 'own' ? 'Each route\'s own truck' : `All ${truck(p).toLowerCase()}`]), point,
         async (v) => { replayDoc = await engine.replay(net, v); draw(); }, 'Freight rate'),
       hbars('Total bill per method', names.map((n) => POLICY[n] ?? n), [{ name: 'Bill', values: names.map((n) => per[n].bill_paise / 100) }], (v) => rupees(v * 100), '₹, lower is better'),
       hbars('Demand met per method', names.map((n) => POLICY[n] ?? n), [{ name: 'Fill rate', values: names.map((n) => per[n].fill_rate * 100) }], (v) => `${v.toFixed(1)}%`, '%, higher is better'),
-      h('h3', {}, 'Tests fixed before the results'),
-      kpiRow('ARIA − forecast + FEFO (b″) bill', doc.kpi1, true, 'Headline: upper 95% CI below 0'),
-      kpiRow('ARIA − forecast + buffer (b′) bill', doc.kpi1b, true, 'Value of calibrated forecasting'),
-      kpiRow('ARIA − usual method (a) bill', doc.kpi1c, true, 'Against current practice'),
-      kpiRow('Cost per unit sold − usual method', doc.kpi3, true, 'Upper 95% CI ≤ 0'),
-      kpiRow('Write-off units − usual method', doc.kpi4, false, 'Upper 95% CI ≤ 0')));
+      h('h3', {}, 'In short'),
+      verdict('Total bill against the usual method', doc.kpi1c, true),
+      verdict('Total bill against the next best method', doc.kpi1, true),
+      verdict('Units thrown away against the usual method', doc.kpi4, false)));
   };
   if (replayDoc === null) {
     replayDoc = { missing: true };
@@ -171,11 +169,12 @@ function replaySection() {
   return box;
 }
 
-function kpiRow(title: string, k: Json, money: boolean, rule: string) {
+/** One plain sentence per pre-agreed test: how much ARIA saved and whether the result is reliable. */
+function verdict(title: string, k: Json, money: boolean) {
   if (!k) return null;
-  const f = (v: number) => (money ? rupees(v) : fmt('units', v));
-  const diff = k.diff_paise ?? k.diff ?? k.diff_paise_per_unit;
-  return h('div', { class: 'kpi' },
-    h('div', {}, h('strong', {}, title), h('div', { class: 'muted small' }, rule), h('div', {}, `${f(diff)}  ·  95% CI ${f(k.ci_low)} to ${f(k.ci_high)}`)),
-    'pass' in k && (k.pass ? badge('PASS', 'ok') : badge('not met', 'warn')));
+  const d = k.diff_paise ?? k.diff;
+  const f = (v: number) => (money ? rupees(Math.abs(v)) : `${num(Math.round(Math.abs(v)))} units`);
+  const text = d < 0 ? `${f(d)} less with ARIA` : `${f(d)} more with ARIA`;
+  return h('div', { class: 'kpi' }, h('div', {}, h('strong', {}, title), h('div', { class: 'small' }, text)),
+    k.pass ? badge('Reliable saving', 'ok') : badge('Not proven', 'warn'));
 }

@@ -1,8 +1,8 @@
 // Records: open .svcr files (file picker, "open with", share-to-app), re-verify them on the device,
 // and show the pick list per godown. Recently opened records are remembered in localStorage.
 import { engine } from '../engine';
-import { Json, badge, h, mount, num, short } from '../ui';
-import { explainSheet, pickLists } from './plan';
+import { Json, badge, h, mount, num } from '../ui';
+import { explainSheet, pickLists, plainReason, townName } from './plan';
 
 const KEY = 'aria.records';
 let root: HTMLElement | null = null;
@@ -58,27 +58,26 @@ function draw() {
     current && view(current),
     h('section', { class: 'card' }, h('h2', {}, 'Recently opened'),
       list.length ? h('ul', { class: 'recent' }, list.map((r) => h('li', {},
-        h('div', {}, h('strong', {}, r.name || 'record'), h('div', { class: 'muted small' }, `${new Date(r.opened_at).toLocaleString()} · ${r.network_id ?? '-'} · ${short(r.scenario_hash)}`)),
-        r.ok ? badge('VERIFIED', 'ok') : badge('REJECTED', 'bad'))))
-        : h('p', { class: 'muted' }, 'No records opened yet.')));
+        h('div', {}, h('strong', {}, r.name || 'Plan file'), h('div', { class: 'muted small' }, new Date(r.opened_at).toLocaleString())),
+        r.ok ? badge('Safe to use', 'ok') : badge('Do not use', 'bad'))))
+        : h('p', { class: 'muted' }, 'No plan files opened yet.')));
 }
 
 function view({ name, resp }: { name: string; resp: Json }) {
   if (!resp.ok) {
     return h('section', { class: 'card verdict bad', role: 'alert' },
-      h('div', { class: 'row between' }, h('h2', {}, name || 'Record'), badge('REJECTED', 'bad')),
+      h('div', { class: 'row between' }, h('h2', {}, name || 'Plan file'), badge('Do not use', 'bad')),
       h('p', {}, h('strong', {}, 'Do not dispatch from this file.'), ' It was changed, damaged, or is not valid for its inputs.'),
-      h('pre', { class: 'err' }, resp.error));
+      h('p', { class: 'small muted' }, 'Ask the sender to share the plan again.'));
   }
   const p = resp.plan;
   return h('section', { class: 'card verdict ok' },
-    h('div', { class: 'row between' }, h('h2', {}, name), badge('VERIFIED', 'ok')),
+    h('div', { class: 'row between' }, h('h2', {}, name), badge('Safe to use', 'ok')),
     h('ul', { class: 'checks' }, h('li', {}, 'Nothing in the file was altered'), h('li', {}, 'The plan belongs to these exact inputs'), h('li', {}, 'All 8 safety checks passed on this phone')),
-    h('div', { class: 'row wrap' }, badge(`scenario_hash ${short(resp.scenario_hash)}`), badge(`network ${resp.network_id}`), badge(`policy ${p.policy}`), badge(`day ${resp.day}`)),
-    h('p', { class: 'muted small' }, `Scenario ${resp.scenario_id} · created ${resp.created_at} · ${num(p.allocations.length)} allocation rows`),
+    h('p', { class: 'muted small' }, `Made ${resp.created_at ? new Date(resp.created_at).toLocaleString() : ''}${resp.day ? ` for ${resp.day}` : ''} · ${num(p.allocations.length)} pick rows · ${p.policy === 'aria' ? 'ARIA plan' : 'usual method'}`),
     h('h3', {}, 'Pick list per depot'),
     pickLists(p.allocations, false, (g) => `picklist_${g}_${String(resp.scenario_hash).slice(0, 8)}.csv`),
-    p.shortfalls?.length > 0 && h('details', {}, h('summary', {}, `Shortfalls (${num(p.shortfalls.length)})`),
+    p.shortfalls?.length > 0 && h('details', {}, h('summary', {}, `Shortages (${num(p.shortfalls.length)})`),
       h('ul', { class: 'recent' }, p.shortfalls.slice(0, 200).map((s: Json) => h('li', { class: 'tap', tabIndex: 0, onclick: () => explainSheet(p, s) },
-        h('span', {}, `${s.town_id} / ${s.product_id}: ${num(s.shortfall_units)} short`), badge(s.reason))))));
+        h('span', {}, `${townName(s.town_id)} · ${s.product_id}: ${num(s.shortfall_units)} short`), h('span', { class: 'small muted' }, plainReason(s)))))));
 }

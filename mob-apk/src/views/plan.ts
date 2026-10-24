@@ -5,7 +5,8 @@ import { engine } from '../engine';
 import { SVCR_MIME, shareFile } from '../native';
 import { forecastLabel, isStale, loadCsvText, loadSample, nextRid, notify, persist, rerender, scheduleValidate, state } from '../state';
 import { networkDiagram } from './network';
-import { Json, badge, bandBar, errorBox, fmt, h, icon, kv, label, mount, num, openSheet, pagedTable, rupees, segmented, select, short, table, toast } from '../ui';
+import { issueText, noteGroups, sampleName } from '../plain';
+import { Json, badge, bandBar, errorBox, fmt, h, icon, kv, mount, num, openSheet, pagedTable, rupees, segmented, select, table, toast } from '../ui';
 
 let show: 'aria' | 'baseline_a' = 'aria';
 const replays: Record<string, Json> = {};
@@ -45,7 +46,7 @@ export function update() {
 
 function dataCard() {
   const d = state.data, sc = state.scenario;
-  const samples = state.scenarios.map((x): [string, string] => [x.scenario_id, x.scenario_id.replace(/_/g, ' ')]);
+  const samples = state.scenarios.map((x): [string, string] => [x.scenario_id, sampleName(x.scenario_id)]);
   let sample = samples[0]?.[0] ?? '';
   const upload = [
     h('input', { type: 'file', accept: '.csv,text/csv,text/comma-separated-values,text/plain', id: 'csv-file', class: 'visually-hidden', onchange: (e: Event) => uploadCsv(e.target as HTMLInputElement) }),
@@ -115,7 +116,7 @@ const ABOUT: Record<string, string> = {
   routes: 'Which depot can serve which town: road km, days on the road, truck class (55t, road_avg or 6t), active true/false.',
   stock: 'Lots in depots: units and days of shelf life left. lot_id is optional.',
   town_stock: 'Optional. Stock already in towns.',
-  demand: 'Demand for the planning day per town and product: either the 9 quantile columns q0.005 … q0.995, or mean and sd.',
+  demand: 'Expected demand per town and product: either mean (average) and sd (how much it usually varies), or nine forecast columns from lowest to highest, q0.005 … q0.995.',
   sales: 'Instead of demand: past daily sales (date as YYYY-MM-DD). ARIA forecasts the next day on this phone.',
 };
 let formatDoc: Json[] | null = null;
@@ -129,7 +130,7 @@ async function formatSheet() {
       table(sec.columns.filter((c: Json) => !/^q0\./.test(c.name) || c.name === 'q0.005'),
         [['name', 'Column', (v) => (v === 'q0.005' ? 'q0.005 … q0.995' : v)], ['type', 'Type', (v) => typeName[v] ?? v],
           ['required', 'Needed', (v) => (v ? 'yes' : 'no')], ['default', 'If empty', (v, r) => (r.required ? '-' : v == null ? 'none' : String(v))]]))),
-    h('p', { class: 'note' }, 'Quantile columns: q0.005, q0.025, q0.165, q0.25, q0.5, q0.75, q0.835, q0.975, q0.995 (all nine, never decreasing).'));
+    h('p', { class: 'note' }, 'The nine forecast columns are q0.005, q0.025, q0.165, q0.25, q0.5, q0.75, q0.835, q0.975 and q0.995: each number must be at least as big as the one before.'));
 }
 
 /** Stock editor: changes stay a draft until Save, which applies them, re-checks the inputs and stores the dataset. */
@@ -194,10 +195,16 @@ function stockSheet() {
 
 function issues(report: Json) {
   const errs = report?.errors ?? [], warns = report?.warnings ?? [];
+  const sc = state.scenario;
   return [
-    errs.length > 0 && h('div', { class: 'alert bad', role: 'alert' }, `${errs.length} problem(s) in the inputs. Fix them to plan.`,
-      table(errs, [['code', 'Code'], ['path', 'Where'], ['message', 'What']])),
-    warns.length > 0 && h('details', {}, h('summary', { class: 'small' }, `${warns.length} note(s) about the inputs`), table(warns, [['code', 'Code'], ['path', 'Where'], ['message', 'What']])),
+    errs.length > 0 && h('div', { class: 'alert bad', role: 'alert' },
+      h('strong', {}, errs.length === 1 ? 'One thing in your data needs fixing before planning:' : `${errs.length} things in your data need fixing before planning:`),
+      h('ul', { class: 'plain-list' }, errs.slice(0, 30).map((e: Json) => h('li', {}, issueText(e, sc)))),
+      errs.length > 30 && h('p', { class: 'small' }, `…and ${errs.length - 30} more.`),
+      h('p', { class: 'small' }, 'Correct them in your spreadsheet and upload it again, or use Edit depot stock.')),
+    warns.length > 0 && h('details', {}, h('summary', { class: 'small' }, 'Good to know about your data'),
+      noteGroups(warns).map((g) => h('details', { class: 'small' }, h('summary', {}, g.title),
+        h('ul', { class: 'plain-list' }, g.items.slice(0, 50).map((w: Json) => h('li', {}, issueText(w, sc))))))),
   ];
 }
 
@@ -211,7 +218,7 @@ function drawStatus() {
     h('div', { class: 'row between' },
       h('div', {}, h('p', { class: 'eyebrow' }, 'Ready to plan'),
         h('strong', {}, sc ? `${sc.godowns.length} depots · ${sc.towns.length} towns · ${sc.products.length} products` : 'Loading...')),
-      state.validating ? badge('Checking...', 'warn') : valid ? badge('Inputs OK', 'ok') : badge('Needs fixing', 'bad')),
+      state.validating ? badge('Checking...', 'warn') : valid ? badge('Data looks good', 'ok') : badge('Needs fixing', 'bad')),
     !state.validating && issues(r),
     h('button', { class: 'btn primary block', disabled: !valid || state.planBusy, onclick: planTonight },
       state.planBusy ? 'Planning on this phone...' : ['Plan tonight', icon('arrow')]),
@@ -244,25 +251,6 @@ export async function planTonight() {
   }
 }
 
-export function planLabel(p: Json, name: string) {
-  if (!p) return `${name}: withheld`;
-  const v = p.verifier ?? {};
-  return `${name}: stage 1 ${p.stage1_status} · stage 2 ${p.stage2_status} · ${v.passed ? 'verified' : `verifier FAILED (${(v.violations ?? []).length})`}${p.label ? ` · ${p.label}` : ''}`;
-}
-
-export function metricsTable(plans: [string, Json][]) {
-  const keys: string[] = [];
-  for (const [, p] of plans) for (const k of Object.keys(p?.metrics ?? {})) if (!keys.includes(k)) keys.push(k);
-  const rows = keys.map((k) => Object.fromEntries([['metric', label(k)], ...plans.map(([n, p]) => [n, fmt(k, p?.metrics?.[k])])]));
-  return table(rows, [['metric', 'Metric'], ...plans.map(([n]): [string, string] => [n, n])].map(([k, head]) => [k, head, (v: any) => String(v)]));
-}
-
-export function resultHeader(resp: Json, rid: number, stale: boolean, extra: string[] = []) {
-  return h('div', { class: 'row wrap' },
-    stale ? badge('Out of date: inputs changed', 'bad') : badge('Up to date', 'ok'),
-    h('span', { class: 'badge mono' }, `scenario_hash ${short(resp.scenario_hash)}`), h('span', { class: 'badge mono' }, `request ${rid}`), extra.map((x) => badge(x)));
-}
-
 /** One goal row: ARIA vs the usual method, with a plain "lower / higher" chip. */
 function goal(what: string, a: number | null | undefined, b: number | null | undefined, f: (v: number) => string, lowerIsBetter = true) {
   if (a == null || b == null) return null;
@@ -293,7 +281,7 @@ function goalsCard(resp: Json) {
       goal('Stock left to expire (wastage)', a.at_risk_units_left, b.at_risk_units_left, num),
       goal('Expected write-off', a.at_risk_writeoff_paise, b.at_risk_writeoff_paise, rupees),
       h('p', { class: 'note' }, 'Tonight, under the demand forecast. The usual method ships forecast plus a fixed safety buffer from the nearest depot. ARIA ranks every unit by what it is worth after freight, so it may skip a few low-value units on costly routes: compare lost sales value, not only units.'),
-      per?.aria && per?.baseline_a && [h('h3', {}, 'Over 8 weeks of real demand (replay)'),
+      per?.aria && per?.baseline_a && [h('h3', {}, 'Over 8 past weeks of real sales'),
         goal('Total cost bill', per.aria.bill_paise, per.baseline_a.bill_paise, rupees),
         goal('Units written off', per.aria.writeoff_units, per.baseline_a.writeoff_units, num),
         goal('Fill rate', per.aria.fill_rate, per.baseline_a.fill_rate, pctf, false)])];
@@ -331,7 +319,7 @@ function drawResult() {
         stale ? badge('Out of date', 'bad') : verified ? badge('Verified', 'ok') : badge('Not verified', 'bad')),
       h('div', { class: 'hero-num' }, h('strong', {}, num(units)), h('span', {}, 'units')),
       h('div', { class: 'place' }, icon('pin'), `${depots.length} depots → ${towns.size} towns`),
-      !aria && h('div', { class: 'alert warn' }, `ARIA's plan was withheld (${resp.aria_withheld || 'no verified solution'}). Showing the usual method instead, labelled.`),
+      !aria && h('div', { class: 'alert warn' }, 'ARIA could not make a plan that passes every safety check tonight, so this is the usual method\'s plan.'),
       h('div', { class: 'split' },
         h('div', {}, h('span', { class: 'small' }, 'Freight'), h('strong', {}, rupees(shown.metrics?.freight_paise))),
         h('div', {}, h('span', { class: 'small' }, 'Shortages'), h('strong', {}, num(shorts.length)))),
@@ -354,23 +342,17 @@ function drawResult() {
       h('div', { class: 'row-main' }, h('strong', {}, s.product_id), h('span', {}, `${townName(s.town_id)} · ${plainReason(s)}`)),
       h('div', { class: 'row-end' }, h('strong', {}, num(s.shortfall_units)), h('span', {}, 'units'))),
     'No shortages: every town gets what it is worth sending.', () => openSheet('All shortages', pagedTable(shorts.map((s) => ({ ...s, why: plainReason(s), town: townName(s.town_id) })),
-      [['town', 'Town'], ['product_id', 'Product'], ['shortfall_units', 'Short'], ['why', 'Why'], ['reason', 'Code']], (r) => explainSheet(shown, r)))),
+      [['town', 'Town'], ['product_id', 'Product'], ['shortfall_units', 'Short'], ['why', 'Why']], (r) => explainSheet(shown, r)))),
     h('div', { class: 'section-head' }, h('h2', {}, 'Extra stock in towns', h('span', { class: 'count' }, num(excess.length))), h('span', { class: 'small muted' }, 'Above need')),
     rows(excess, (x) => h('li', {}, h('div', { class: 'row-main' }, h('strong', {}, x.product_id), h('span', {}, `${townName(x.town_id)} · has ${num(x.on_hand_units)}, needs ${num(x.target_units)}`)),
       h('div', { class: 'row-end' }, h('strong', {}, num(x.excess_units)), h('span', {}, 'extra'))),
     'No town holds more than it needs.', () => openSheet('Extra stock in towns', pagedTable(excess, [['town_id', 'Town'], ['product_id', 'Product'], ['on_hand_units', 'On hand'], ['target_units', 'Needs'], ['excess_units', 'Extra']])), 4),
     h('details', { class: 'card' }, h('summary', {}, 'Demand forecasts'), forecasts()),
-    h('details', { class: 'card' }, h('summary', {}, 'Technical details'),
-      resultHeader(resp, cur.rid, stale, [`recommended ${resp.recommended === 'aria' ? 'ARIA' : 'baseline (a)'}`]),
-      h('p', { class: 'muted small' }, planLabel(aria, 'ARIA')),
-      h('p', { class: 'muted small' }, planLabel(base, 'Baseline (a)')),
-      aria && segmented([['aria', 'ARIA'], ['baseline_a', 'Usual method (a)']], show, (v) => { show = v as any; drawResult(); }, 'Plan shown'),
-      h('h3', {}, 'All metrics'),
-      metricsTable([['ARIA', aria], ['Baseline (a)', base]]),
-      h('h3', {}, 'Every shipment'),
+    h('details', { class: 'card' }, h('summary', {}, 'Every shipment'),
+      aria && segmented([['aria', 'ARIA plan'], ['baseline_a', 'Usual method']], show, (v) => { show = v as any; drawResult(); }, 'Plan shown'),
       allocs.length ? pagedTable(allocs, [
-        ['godown_id', 'Depot'], ['town_id', 'Town'], ['product_id', 'Product'], ['lot_id', 'Lot'], ['units', 'Units'],
-        ['freight_paise', 'Freight'], ['life_on_arrival', 'Life on arrival'], ['tau_star', 'τ*'],
+        ['godown_id', 'Depot', (v) => godownName(v)], ['town_id', 'Town', (v) => townName(v)], ['product_id', 'Product'], ['units', 'Units'],
+        ['freight_paise', 'Freight'], ['life_on_arrival', 'Days left on arrival'],
       ], (r) => explainSheet(shown, r), 20) : h('p', { class: 'muted' }, 'No shipments.')),
   );
 }
@@ -411,23 +393,17 @@ export async function explainSheet(p: Json, row: Json) {
     return openSheet(head, errorBox(e.message));
   }
   const reason = c.reason;
-  const shadow = c.lot_shadow_price_paise ?? {};
+  const went: Json[] = reason?.facts?.recipients ?? [];
   openSheet(head,
-    reason && h('div', { class: 'alert warn' }, h('strong', {}, plainReason(reason)), h('div', { class: 'small' }, `Code ${reason.reason}${reason.sub_reason ? ` · ${reason.sub_reason}` : ''}`),
-      kv(Object.entries(reason.facts ?? {}).map(([k, v]): [string, string] => [label(k), fmt(k, v)]))),
-    kv([['Service level on this route (τ*)', fmt('tau', c.tau_star)], ['Freight per unit', rupees(c.freight_per_unit_paise)], ['Already in town', num(c.on_hand_units)], ['Shipped tonight', num(c.shipped_units)]]),
-    c.forecast && [h('h3', {}, 'Demand forecast'),
-      h('p', { class: 'muted small' }, `${forecastLabel(c.town_id, c.product_id)}. Most likely ${fmt('q', c.forecast.quantiles[4])}; 99% range ${fmt('q', c.forecast.quantiles[0])} to ${fmt('q', c.forecast.quantiles[8])}.`),
-      bandBar(c.forecast.quantiles, c.forecast.quantiles[8] || 1),
-      table([Object.fromEntries(c.forecast.levels.map((l: number, i: number) => [String(l), fmt('q', c.forecast.quantiles[i])]))],
-        c.forecast.levels.map((l: number): [string, string, (v: any) => string] => [String(l), `q${l}`, String]))],
-    c.life_on_arrival?.length > 0 && [h('h3', {}, 'Lots shipped'), table(c.life_on_arrival.map((r: Json) => ({ ...r, shadow: shadow[r.lot_id] })),
-      [['lot_id', 'Lot'], ['godown_id', 'Depot'], ['units', 'Units'], ['life_on_arrival', 'Days left on arrival'], ['shadow', 'Shadow price', (v) => rupees(v)]]),
-      h('p', { class: 'muted small' }, `Shadow price: ${c.lot_shadow_price_note}`)],
-    h('details', {}, h('summary', {}, 'Demand segments'),
-      h('div', { class: 'scroll' }, table(c.segments, [['j', 'j'], ['tau', 'τ'], ['width', 'Width'], ['value_paise', 'Value / unit'], ['filled', 'Filled']]))),
-    h('details', {}, h('summary', {}, 'Parameters and sources'),
-      table(c.params, [['name', 'Name'], ['value', 'Value', (v) => String(v)], ['source', 'Source']])),
+    reason && h('div', { class: 'alert warn' }, h('strong', {}, plainReason(reason)),
+      went.length > 0 && h('p', { class: 'small' }, `The stock went to: ${went.map((r) => `${townName(r.town_id)} (${num(r.units)})`).join(', ')}.`)),
+    kv([['Already in town', `${num(c.on_hand_units)} units`], ['Sent tonight', `${num(c.shipped_units)} units`], ['Transport cost per unit', rupees(c.freight_per_unit_paise)],
+      ['Share of demand worth covering on this route', c.tau_star == null ? '-' : `${Math.round(c.tau_star * 100)}%`]]),
+    c.forecast && [h('h3', {}, 'Expected demand'),
+      h('p', { class: 'muted small' }, `Most likely ${fmt('q', c.forecast.quantiles[4])} units; almost surely between ${fmt('q', c.forecast.quantiles[0])} and ${fmt('q', c.forecast.quantiles[8])}. Forecast by: ${forecastLabel(c.town_id, c.product_id)}.`),
+      bandBar(c.forecast.quantiles, c.forecast.quantiles[8] || 1)],
+    c.life_on_arrival?.length > 0 && [h('h3', {}, 'Stock sent'), table(c.life_on_arrival,
+      [['godown_id', 'From', (v) => godownName(v)], ['lot_id', 'Lot'], ['units', 'Units'], ['life_on_arrival', 'Days left on arrival']])],
   );
 }
 
@@ -435,11 +411,11 @@ function forecasts() {
   const rows: Json[] = state.scenario?.demand ?? [];
   const max = Math.max(1, ...rows.map((d) => d.quantiles[8] ?? 0));
   const model = (r: Json) => forecastLabel(r.town_id, r.product_id);
-  return [h('p', { class: 'muted small' }, `Tomorrow's demand per town and product: the bar shows the likely range (darkest = middle half), the tick the most likely value. ${forecastLabel()}.`),
+  return [h('p', { class: 'muted small' }, `Demand per town and product: the bar shows the likely range (darkest = most likely half), the tick the single most likely number. Forecast by: ${forecastLabel()}.`),
     h('ul', { class: 'list-cards' }, rows.slice(0, 40).map((d) => h('li', {},
       h('div', { class: 'row between small' }, h('span', {}, `${townName(d.town_id)} · ${d.product_id}`), h('span', { class: 'muted' }, `about ${fmt('q', d.quantiles[4])}`)),
       bandBar(d.quantiles, max)))),
     rows.length > 40 && h('h3', {}, 'All rows'),
     rows.length > 40 && pagedTable(rows, [['town_id', 'Town', (v) => townName(v)], ['product_id', 'Product'], ['quantiles', 'Most likely', (q) => fmt('q', q[4])],
-      ['point', 'Range', (_, r) => `${fmt('q', r.quantiles[0])} to ${fmt('q', r.quantiles[8])}`], ['sigma', 'Model', (_, r) => model(r)]], undefined, 30)];
+      ['point', 'Range', (_, r) => `${fmt('q', r.quantiles[0])} to ${fmt('q', r.quantiles[8])}`], ['sigma', 'Forecast by', (_, r) => model(r)]], undefined, 30)];
 }
