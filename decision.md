@@ -39,7 +39,12 @@ _Every important decision taken while building ARIA, with its reason and the alt
 | D-020 | Region-agnostic engine; networks are data; Kolhapur is one bundled network | Accepted | 2026-10-24 |
 | D-021 | Demand quantiles embedded in the Scenario | Accepted | 2026-10-24 |
 | D-022 | Repo governance: private repo, org-ready admin model | Accepted | 2026-10-24 |
-| D-023 | Deployment: Docker Compose (API + UI) and CI on GitHub Actions | Accepted | 2026-10-24 |
+| D-023 | Deployment: Docker Compose (API + UI) and CI on GitHub Actions | Superseded by D-025/D-027 (Docker kept optional) | 2026-10-24 |
+| D-024 | At-risk uses the shortest leg over all routes | Accepted | 2026-10-24 |
+| D-025 | Mobile and web: Capacitor + TypeScript, engine on device via Pyodide | Accepted | 2026-10-24 |
+| D-026 | `.svcr` file format: Scenario-Verified Consignment Record | Accepted | 2026-10-24 |
+| D-027 | Hosting: Firebase Hosting, free Spark plan, no backend | Accepted | 2026-10-24 |
+| D-028 | SciPy HiGHS as the solver fallback where highspy is unavailable | Accepted | 2026-10-24 |
 
 ---
 
@@ -237,3 +242,64 @@ The only rows are flow-conservation equalities. Segments are nodes, so y and y^r
 - GitHub Actions CI runs `pytest` on every push and PR.
 
 **Why:** It runs the same on any laptop, starts with one command, and uses no cloud data (out of scope §5.4).
+
+### D-024 · At-risk uses the shortest leg over all routes, active or not · Accepted
+**Context:** PRD §7.4 defines t_l as the "shortest active transit". Closing a godown's shortest route could then turn its lots at-risk and add write-off credit, so V\* *rose* under `ROUTE_CLOSURE`. That violates property P4 (closures never increase V\*). It was found by the property tests on random seeds.
+**Decision:** t_l = the shortest transit from the lot's godown over all routes, ignoring `active`. At-risk is then a property of the lot, unchanged by disruptions. Eligibility itself still requires an active route.
+**Why:** It restores P4 without touching the LP. The credit is meant to price expiry, not to reward a closure.
+
+### D-025 · Mobile and web: Capacitor + TypeScript, engine on device via Pyodide · Accepted
+**Context:** ARIA must ship as an Android and iOS app (and on Firebase) at zero cost, with no billing account.
+**Decision:**
+- One TypeScript + Vite mobile-first web app in `mobile/`. Capacitor packages it as native Android and iOS apps, and the same build is the Firebase Hosting website.
+- The existing Python engine runs **on the device** in Pyodide inside a Web Worker. The optimizer, verifier, reason codes and `.svcr` are the same code that the tests cover.
+- The desktop FastAPI + Streamlit path stays for the offline judged demo (PRD J1–J4, KPI-9).
+
+**Why:**
+- No server means no billing, no cold starts, and planning works offline, matching PRD persona U1 ("intermittent 4G").
+- One engine codebase means the verified guarantees (P1–P7, V1–V8) hold on the phone too, instead of being re-implemented in another language.
+
+**Alternatives rejected:**
+- React Native or Flutter: a full UI rewrite, and the engine would still need a server.
+- Native app + Cloud Functions API: needs the Blaze plan (billing).
+- Hugging Face Spaces / Render: not Firebase, and they sleep when idle.
+
+**Costs:**
+- The first load downloads the Python runtime (about 15–20 MB, bundled inside the native apps).
+- Solves are slower than native.
+- iOS builds need macOS: a Mac with Xcode, or the `mobile.yml` macOS CI job.
+
+### D-026 · `.svcr` — Scenario-Verified Consignment Record · Accepted
+**What it is:** ARIA's own file extension (`.svcr`, MIME `application/vnd.aria.svcr+json`). One UTF-8 file contains:
+- a header line `SVCR/1 sha256=<digest>`;
+- canonical JSON holding the **verified dispatch plan together with the exact scenario it was solved on** (stock, lots, routes, forecasts, policy) and its `scenario_hash`.
+
+Implemented in `aria/svcr.py`, tested in `tests/test_svcr.py`.
+
+**The specific problem it solves:**
+1. The plan is made by U1 (the planner) at night, but it is executed at 6 am by U2 at the godown. U2 works on a shared desktop or phone with intermittent 4G (PRD §3).
+2. ARIA has no server, database or user accounts by design (§5.4). So the plan has to travel as a file, over WhatsApp, Bluetooth or USB.
+3. A CSV pick list loses everything that makes the plan trustworthy. It doesn't show which inputs it came from, or whether it passed V1–V8. Anyone can edit a quantity, and the dispatcher can't tell.
+4. That would break two PRD rules: "no unverified plan ever reaches the screen" (§7.8) and "every result labelled with scenario_hash" (§4).
+
+**How `.svcr` keeps those rules across devices:** the receiving app checks three things offline, on the device, before showing a single row:
+- (a) the digest, which catches corruption or hand edits;
+- (b) `scenario_hash`, which proves the plan is bound to these exact inputs;
+- (c) a full **re-run of the independent verifier** on the embedded scenario, which proves the plan is feasible: lot stock, shelf life on arrival, capacity, value order.
+
+If any check fails, the file is rejected with the reason. So a dispatcher never trusts the sender, only the maths.
+
+**Other uses:**
+- Disruption Lab results (J4) can be shared as `.svcr`.
+- Auditors (U3) can replay any past plan exactly, because the full inputs are inside the file.
+- A plain JSON file would not be recognised by the OS or opened by the app on tap. A registered extension makes "tap file → ARIA opens → verified pick list" work on Android and iOS.
+
+**Limits (stated plainly):** the SHA-256 digest proves integrity, not authorship, because anyone can recompute it. The verifier re-run is the real guarantee. Ed25519 signing can be added if senders ever need authenticating, but user accounts are out of scope today.
+
+### D-027 · Hosting: Firebase Hosting, free Spark plan · Accepted
+**Decision:** Firebase project `aria-triwiz` (Spark plan, no billing account). Hosting serves `mobile/dist`. There are no Cloud Functions: the engine runs in the browser (D-025).
+**Why:** Python Cloud Functions require the Blaze plan, which needs a billing account. Static hosting plus on-device compute is completely free and never sleeps.
+
+### D-028 · SciPy HiGHS fallback · Accepted
+**Decision:** `aria/engine/optimizer.py` uses highspy when it is available (desktop, CI). Otherwise, or when `ARIA_SOLVER=scipy`, it uses `scipy.optimize.linprog(method="highs-ds")`, which is the same HiGHS dual simplex. Reduced costs come from the bound marginals. Both backends are tested to give an identical V\*.
+**Why:** highspy has no Pyodide build, while SciPy does. Keeping one solver family keeps the duals, integrality and stage-2 logic identical.

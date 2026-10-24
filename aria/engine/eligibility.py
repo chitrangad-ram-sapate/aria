@@ -15,12 +15,13 @@ def eligible(lot: Lot, route: Route, product: Product) -> bool:
 
 
 def shortest_transit(godown_id: str, routes: list[Route]) -> int | None:
-    days = [r.transit_days for r in routes if r.godown_id == godown_id and r.active]
+    """Shortest leg from the godown, active or not (D-024: at-risk must not change under closures)."""
+    days = [r.transit_days for r in routes if r.godown_id == godown_id]
     return min(days) if days else None
 
 
 def at_risk(lot: Lot, product: Product, routes: list[Route]) -> bool:
-    """Shippable today on the shortest active leg but below the minimum one day later."""
+    """Shippable today on the godown's shortest leg but below the minimum one day later."""
     t = shortest_transit(lot.godown_id, routes)
     if t is None:
         return False

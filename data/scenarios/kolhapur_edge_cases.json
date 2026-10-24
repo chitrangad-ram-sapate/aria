@@ -1,0 +1,992 @@
+{
+ "scenario_id": "kolhapur_edge_cases",
+ "network_id": "kolhapur",
+ "day": "2016-03-28",
+ "policy": {
+  "margin": 0.035,
+  "salvage_share": 0.0,
+  "repo_rate": 0.055,
+  "freight_paise_per_tkm": {
+   "55t": 151,
+   "road_avg": 378,
+   "6t": 1103
+  }
+ },
+ "products": [
+  {
+   "product_id": "FOODS_3_007",
+   "category": "dairy",
+   "kg_per_unit": 0.5,
+   "shelf_life_days": 12,
+   "min_days_at_receipt": 4,
+   "price_paise": 1899
+  },
+  {
+   "product_id": "FOODS_3_030",
+   "category": "snacks",
+   "kg_per_unit": 0.2,
+   "shelf_life_days": 101,
+   "min_days_at_receipt": 31,
+   "price_paise": 13102
+  },
+  {
+   "product_id": "FOODS_3_042",
+   "category": "staples",
+   "kg_per_unit": 1.0,
+   "shelf_life_days": 283,
+   "min_days_at_receipt": 85,
+   "price_paise": 15950
+  },
+  {
+   "product_id": "FOODS_3_064",
+   "category": "fresh_produce",
+   "kg_per_unit": 1.0,
+   "shelf_life_days": 12,
+   "min_days_at_receipt": 4,
+   "price_paise": 11203
+  },
+  {
+   "product_id": "FOODS_3_070",
+   "category": "fresh_produce",
+   "kg_per_unit": 1.0,
+   "shelf_life_days": 7,
+   "min_days_at_receipt": 3,
+   "price_paise": 1899
+  },
+  {
+   "product_id": "FOODS_3_080",
+   "category": "fresh_produce",
+   "kg_per_unit": 1.0,
+   "shelf_life_days": 10,
+   "min_days_at_receipt": 3,
+   "price_paise": 15950
+  }
+ ],
+ "godowns": [
+  {
+   "godown_id": "G_SHIROLI",
+   "name": "Shiroli MIDC",
+   "lat": 16.7445,
+   "lon": 74.269,
+   "dispatch_capacity_units": 158
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "name": "Gokul Shirgaon MIDC",
+   "lat": 16.649,
+   "lon": 74.27,
+   "dispatch_capacity_units": null
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "name": "Kagal MIDC",
+   "lat": 16.601,
+   "lon": 74.303,
+   "dispatch_capacity_units": null
+  }
+ ],
+ "towns": [
+  {
+   "town_id": "T_KOLHAPUR",
+   "name": "Kolhapur",
+   "population_2011": 549236,
+   "priority": 1.0,
+   "lat": 16.705,
+   "lon": 74.2433
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "name": "Ichalkaranji",
+   "population_2011": 287353,
+   "priority": 1.0,
+   "lat": 16.691,
+   "lon": 74.4605
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "name": "Jaysingpur",
+   "population_2011": 48510,
+   "priority": 1.0,
+   "lat": 16.779,
+   "lon": 74.556
+  },
+  {
+   "town_id": "T_KAGAL",
+   "name": "Kagal",
+   "population_2011": 34106,
+   "priority": 1.0,
+   "lat": 16.577,
+   "lon": 74.315
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "name": "Gadhinglaj",
+   "population_2011": 27185,
+   "priority": 1.0,
+   "lat": 16.224,
+   "lon": 74.35
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "name": "Ratnagiri",
+   "population_2011": 76229,
+   "priority": 1.0,
+   "lat": 16.9902,
+   "lon": 73.312
+  }
+ ],
+ "lots": [
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_030-SHORT",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_030",
+   "qty_units": 112,
+   "remaining_life_days": 31
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_042-1",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_042",
+   "qty_units": 8,
+   "remaining_life_days": 144
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_042-2",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_042",
+   "qty_units": 8,
+   "remaining_life_days": 250
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_042-3",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_042",
+   "qty_units": 70,
+   "remaining_life_days": 261
+  },
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_064-1",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_064",
+   "qty_units": 572,
+   "remaining_life_days": 12
+  },
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_064-2",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_064",
+   "qty_units": 39,
+   "remaining_life_days": 12
+  },
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_064-3",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_064",
+   "qty_units": 38,
+   "remaining_life_days": 12
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_070-1",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_070",
+   "qty_units": 1,
+   "remaining_life_days": 5
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_070-2",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_070",
+   "qty_units": 22,
+   "remaining_life_days": 5
+  },
+  {
+   "lot_id": "L-G_GOKUL_SHIRGAON-FOODS_3_070-3",
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "product_id": "FOODS_3_070",
+   "qty_units": 7,
+   "remaining_life_days": 6
+  },
+  {
+   "lot_id": "L-G_KAGAL_MIDC-FOODS_3_070-1",
+   "godown_id": "G_KAGAL_MIDC",
+   "product_id": "FOODS_3_070",
+   "qty_units": 30,
+   "remaining_life_days": 7
+  },
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_070-1",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_070",
+   "qty_units": 30,
+   "remaining_life_days": 4
+  },
+  {
+   "lot_id": "L-G_SHIROLI-FOODS_3_080-1",
+   "godown_id": "G_SHIROLI",
+   "product_id": "FOODS_3_080",
+   "qty_units": 1,
+   "remaining_life_days": 10
+  }
+ ],
+ "town_stock": [],
+ "routes": [
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_KOLHAPUR",
+   "road_km": 11.4,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_ICHALKARANJI",
+   "road_km": 29.1,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_JAYSINGPUR",
+   "road_km": 35.9,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_KAGAL",
+   "road_km": 23.8,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_GADHINGLAJ",
+   "road_km": 80.0,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_SHIROLI",
+   "town_id": "T_RATNAGIRI",
+   "road_km": 144.8,
+   "transit_days": 1,
+   "vehicle_class": "road_avg",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_KOLHAPUR",
+   "road_km": 9.4,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_ICHALKARANJI",
+   "road_km": 34.8,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_JAYSINGPUR",
+   "road_km": 41.5,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_KAGAL",
+   "road_km": 10.5,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_GADHINGLAJ",
+   "road_km": 66.7,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_GOKUL_SHIRGAON",
+   "town_id": "T_RATNAGIRI",
+   "road_km": 144.9,
+   "transit_days": 1,
+   "vehicle_class": "road_avg",
+   "active": false
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_KOLHAPUR",
+   "road_km": 16.4,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_ICHALKARANJI",
+   "road_km": 27.8,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_JAYSINGPUR",
+   "road_km": 48.5,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_KAGAL",
+   "road_km": 6.1,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_GADHINGLAJ",
+   "road_km": 62.3,
+   "transit_days": 1,
+   "vehicle_class": "6t",
+   "active": true
+  },
+  {
+   "godown_id": "G_KAGAL_MIDC",
+   "town_id": "T_RATNAGIRI",
+   "road_km": 151.9,
+   "transit_days": 1,
+   "vehicle_class": "road_avg",
+   "active": true
+  }
+ ],
+ "demand": [
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.2547574406367221,
+    2.12076122603138,
+    4.121457344101146,
+    5.52566123916785,
+    14.782072775211018,
+    24.945195630822482
+   ],
+   "point": 2.12076122603138,
+   "sigma": 2.836250139382534
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.3730802193984449,
+    1.423234066429167,
+    3.355010626004842,
+    5.351773201007395,
+    6.252055337720396,
+    10.643597324630836,
+    17.158992141170163
+   ],
+   "point": 3.355010626004842,
+   "sigma": 3.0176015642388845
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.36823771170963704,
+    0.9460201105996889,
+    1.9125468181378626,
+    2.8000620963636096,
+    5.553775160082677,
+    8.310544935098806
+   ],
+   "point": 0.9460201105996889,
+   "sigma": 1.4372355031100372
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.01888835669205527,
+    0.13779185764526589,
+    0.8801833624606139,
+    1.8976615245849666,
+    2.5878378656848393,
+    5.7440350438322465,
+    9.897639642058092
+   ],
+   "point": 0.8801833624606139,
+   "sigma": 1.31860841401214
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    1.524874655770636e-05,
+    0.01393829902348545,
+    0.045915043766794776,
+    0.5301137831686985,
+    1.2560577378879558,
+    9.794233542328513,
+    16.970730684952052
+   ],
+   "point": 0.045915043766794776,
+   "sigma": 0.6447102945156605
+  },
+  {
+   "town_id": "T_GADHINGLAJ",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    1.31029668381029,
+    1.889429256779497,
+    2.875931616090548,
+    4.233689592375525,
+    4.814640694251568,
+    7.702056505443369,
+    10.411760224672694
+   ],
+   "point": 2.875931616090548,
+   "sigma": 1.7987342614501716
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.183346725912759,
+    4.429053656146258,
+    20.71136032501797,
+    48.50494485627875,
+    70.99264230574468,
+    206.82122691090038,
+    366.43561188153075
+   ],
+   "point": 20.71136032501797,
+   "sigma": 36.34549165524344
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    5.929408663398094,
+    28.03136232578295,
+    47.99508788324175,
+    60.282685960978874,
+    131.30073687732778,
+    231.66281889756462
+   ],
+   "point": 28.03136232578295,
+   "sigma": 30.94231967157807
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    1.541581524899228,
+    12.734491668576792,
+    26.085021521159504,
+    33.28600644001437,
+    63.7307696691471,
+    113.68862037075061
+   ],
+   "point": 12.734491668576792,
+   "sigma": 17.085274742466147
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    28.99502594672868,
+    37.474575423763966,
+    75.68323504095098,
+    102.07862552104459,
+    122.02316588582701,
+    172.69510019168092,
+    233.01203296689067
+   ],
+   "point": 75.68323504095098,
+   "sigma": 47.750135856772275
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.6087573288845601,
+    3.815134641776452,
+    19.457076889249738,
+    44.63355824519785,
+    59.28836232179876,
+    139.97746569693354,
+    276.8160772815729
+   ],
+   "point": 19.457076889249738,
+   "sigma": 30.119479033631244
+  },
+  {
+   "town_id": "T_ICHALKARANJI",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    50.616778767119484,
+    66.86734191766845,
+    109.7839802509516,
+    143.53162011565456,
+    159.51148959893945,
+    210.70724371174518,
+    297.2934028861318
+   ],
+   "point": 109.7839802509516,
+   "sigma": 55.89424059975171
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.31801441323092333,
+    1.2338239344602864,
+    3.233012641798142,
+    5.409102801269573,
+    6.7938274844261,
+    11.936535709516942,
+    19.60298020881337
+   ],
+   "point": 3.233012641798142,
+   "sigma": 3.323950732918723
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0796505575285015,
+    0.8911432679568306,
+    3.4823229458192286,
+    5.729288527356371,
+    6.52990118412197,
+    10.44751031408671,
+    17.31199385455186
+   ],
+   "point": 3.4823229458192286,
+   "sigma": 3.310829862143902
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    3.376530100807328e-05,
+    0.07366381770924425,
+    0.726887288053898,
+    1.2497685565565373,
+    1.6064289749184997,
+    3.1523750139364766,
+    4.408931315335377
+   ],
+   "point": 0.726887288053898,
+   "sigma": 0.8245417950860822
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.24408459794438953,
+    1.3680021451003337,
+    2.6601350681113747,
+    3.292742272891936,
+    6.364286728261112,
+    12.018384804337149
+   ],
+   "point": 1.3680021451003337,
+   "sigma": 1.6901218381326157
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.24268582451596105,
+    0.398934490304969,
+    2.0391928326022315,
+    3.44720812106793,
+    4.290506777500706,
+    8.094187090398918,
+    13.790969698371606
+   ],
+   "point": 2.0391928326022315,
+   "sigma": 2.077693916651951
+  },
+  {
+   "town_id": "T_JAYSINGPUR",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    3.3940489276207586,
+    4.1414685189650875,
+    6.748319478883534,
+    8.069122334734587,
+    9.070163620830872,
+    10.668013095979274,
+    13.006007432296338
+   ],
+   "point": 6.748319478883534,
+   "sigma": 2.9134759430516373
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.13512040196233746,
+    1.622423617619089,
+    5.039314984443757,
+    7.436712359806478,
+    20.745861620022737,
+    38.74364320193126
+   ],
+   "point": 1.622423617619089,
+   "sigma": 3.817167856317118
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.22314950698928146,
+    3.0230378226626264,
+    5.984635129187422,
+    7.897791690221385,
+    17.02841926225526,
+    32.63057074707766
+   ],
+   "point": 3.0230378226626264,
+   "sigma": 4.053833887503754
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.4544731389502015,
+    2.2584881927824627,
+    4.0889647173185235,
+    5.300398693054968,
+    8.680229113970618,
+    11.449095201461414
+   ],
+   "point": 2.2584881927824627,
+   "sigma": 2.7206258004741746
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.7217905363507305,
+    2.1185681087485335,
+    6.483771833189018,
+    12.50725874126644,
+    15.072623901000037,
+    27.98724275903772,
+    41.44753960843477
+   ],
+   "point": 6.483771833189018,
+   "sigma": 7.366096358247217
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    3.409523211863142e-05,
+    0.03116533010937226,
+    0.8028721847586862,
+    2.8676459943894987,
+    4.048817459482052,
+    12.041031156546836,
+    24.871845939226922
+   ],
+   "point": 0.8028721847586862,
+   "sigma": 2.0781879098532867
+  },
+  {
+   "town_id": "T_KAGAL",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    3.1460183295786788,
+    3.654578749706192,
+    6.400435257846443,
+    9.655566697796147,
+    10.825495893636008,
+    15.82424984517832,
+    23.688210488955622
+   ],
+   "point": 6.400435257846443,
+   "sigma": 3.9417760822997514
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    9.61882077218834,
+    14.851633101091876,
+    41.80693609072717,
+    80.19241307607857,
+    103.93659633482983,
+    193.1512356837845,
+    287.8235370959113
+   ],
+   "point": 41.80693609072717,
+   "sigma": 48.412089070823775
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.29483648234515913,
+    7.253672894176984,
+    56.9884563934247,
+    93.2183483633912,
+    116.65862173070411,
+    189.61306731121917,
+    306.75678307902433
+   ],
+   "point": 56.9884563934247,
+   "sigma": 59.72801947942793
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    1.382145785779998,
+    7.765733836030115,
+    21.962424865621557,
+    34.74722796359723,
+    45.48079319168178,
+    84.5498514845079,
+    131.59578160732366
+   ],
+   "point": 21.962424865621557,
+   "sigma": 22.63526290120638
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    137.36567123946406,
+    168.2257955781781,
+    230.90875779356827,
+    302.31776770211025,
+    323.2262197696519,
+    400.8477569115001,
+    537.9820676959749
+   ],
+   "point": 230.90875779356827,
+   "sigma": 95.39980535503227
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    17.49067906586805,
+    44.72129940572321,
+    76.2821295485131,
+    172.76286655964398,
+    306.0020506447474
+   ],
+   "point": 17.49067906586805,
+   "sigma": 39.15462624287645
+  },
+  {
+   "town_id": "T_KOLHAPUR",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    88.17069832071121,
+    102.36994282717721,
+    137.448588633947,
+    182.36314875067046,
+    202.7484217487707,
+    267.139958547085,
+    326.7363166398697
+   ],
+   "point": 137.448588633947,
+   "sigma": 58.811257146829156
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_007",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.0,
+    1.0987082510503992,
+    5.3837949418210105,
+    10.167037519357214,
+    11.267119513120635,
+    21.958098013465836,
+    39.86523502454606
+   ],
+   "point": 5.3837949418210105,
+   "sigma": 5.783266093659519
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_030",
+   "quantiles": [
+    0.0,
+    0.0,
+    2.3210288072065643,
+    7.023030387484874,
+    15.608214690716114,
+    22.16675737726833,
+    24.61912668940226,
+    38.373356874084465,
+    56.20237923382126
+   ],
+   "point": 15.608214690716114,
+   "sigma": 11.445324005397612
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_042",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.5818160640791954,
+    1.2492683069387758,
+    3.3809875094010255,
+    4.9166797974540035,
+    5.9001025034675045,
+    8.152880465913631,
+    11.001712598251222
+   ],
+   "point": 3.3809875094010255,
+   "sigma": 2.7298073483170926
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_064",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.3125885129378014,
+    0.9489915119939244,
+    4.058037699701346,
+    6.833931340880808,
+    8.743381056214458,
+    15.499927549930876,
+    23.50340091625412
+   ],
+   "point": 4.058037699701346,
+   "sigma": 4.327416302048713
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_070",
+   "quantiles": [
+    0.0,
+    0.0,
+    0.4250128059977071,
+    1.12990368265992,
+    4.349693626667795,
+    8.504093169434888,
+    11.242977684048613,
+    22.22998626876177,
+    38.268612773895605
+   ],
+   "point": 4.349693626667795,
+   "sigma": 5.552720853699662
+  },
+  {
+   "town_id": "T_RATNAGIRI",
+   "product_id": "FOODS_3_080",
+   "quantiles": [
+    0.0,
+    0.0,
+    10.247030179970695,
+    12.281579885754804,
+    17.04637845425052,
+    22.774818526783864,
+    24.095511198199166,
+    29.348368267879753,
+    36.625429165884356
+   ],
+   "point": 17.04637845425052,
+   "sigma": 7.108245424053899
+  }
+ ]
+}
