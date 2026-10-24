@@ -303,3 +303,23 @@ If any check fails, the file is rejected with the reason. So a dispatcher never 
 ### D-028 · SciPy HiGHS fallback · Accepted
 **Decision:** `aria/engine/optimizer.py` uses highspy when it is available (desktop, CI). Otherwise, or when `ARIA_SOLVER=scipy`, it uses `scipy.optimize.linprog(method="highs-ds")`, which is the same HiGHS dual simplex. Reduced costs come from the bound marginals. Both backends are tested to give an identical V\*.
 **Why:** highspy has no Pyodide build, while SciPy does. Keeping one solver family keeps the duals, integrality and stage-2 logic identical.
+
+### R-001 · Replay results, kolhapur (measured, not tuned) · 2026-10-24
+Setup: 100 products, 2 × 28-day held-out windows (2016-03-28..04-24 and 04-25..05-22). Conservation held everywhere, no leakage, 0 verifier failures, 95 s runtime.
+
+| KPI | Result |
+|---|---|
+| KPI-1 (ARIA − b″) at own vehicle class | −₹16.99 lakh, CI [−39.7 lakh, −₹0.04 lakh]: **PASS** |
+| KPI-1 at all-₹3.78 | **PASS** |
+| KPI-1 at all-₹11.03 | CI upper bound +₹11.6k: **FAIL** |
+| KPI-1b, KPI-1c, KPI-3, KPI-4 (all freight points) | **PASS** |
+| KPI-10 | **FAIL**: KPI-1 does not hold at all-6t |
+
+Bills at the headline point, in ₹ lakh: (a) 284.6 · b′ 216.6 · b″ 213.1 · ARIA 196.1 · hindsight 223.6.
+
+**Caveats:**
+- Write-off is about 98% of every bill. It comes from the synthetic 5–10-day shelf-life classes (D-015, A8), so the CIs are wide.
+- "% gap closed" is above 100% because hindsight (c) plans day by day and is not a bound (PRD FIG 7).
+
+**Response, as pre-registered in PRD §9:** report as measured and use the P1-05 ablations to explain. No pass rule and no data parameter was changed after seeing these results.
+The `maharashtra` network (40 products) is reported only (D-020). KPI-1 fails there at own / 3.78 / 6t and passes at 55t. KPI-1c, KPI-3 and KPI-4 pass.

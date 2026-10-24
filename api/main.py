@@ -15,7 +15,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 import yaml
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -87,7 +87,8 @@ def health():
 
 
 def _scenario_files() -> dict[str, Path]:
-    return {p.stem: p for p in sorted((DATA / "scenarios").glob("*.json"))}
+    paths = [*sorted((DATA / "scenarios").glob("*.json")), *sorted((DATA / "built" / "imports").glob("*.json"))]
+    return {p.stem: p for p in paths}
 
 
 @app.get("/api/scenarios")
@@ -141,22 +142,36 @@ def list_networks():
 
 # ---------- import ----------
 
+def _forecast_import(job: str, csv_path: Path, network_id: str) -> None:
+    """Batch job: imported history → calibrated forecast → plannable scenario (listed by /api/scenarios)."""
+    from aria.data.csv_import import scenario_from_import
+
+    JOBS[job]["status"] = "running"
+    try:
+        sc = scenario_from_import(csv_path, network_id)
+        csv_path.with_suffix(".json").write_text(sc.model_dump_json(), encoding="utf-8")
+        JOBS[job].update(status="done", scenario_id=csv_path.stem, plannable_scenario_id=sc.scenario_id)
+    except Exception as exc:  # report, never crash the server
+        JOBS[job].update(status="failed", error=f"{type(exc).__name__}: {exc}")
+
+
 @app.post("/api/import", status_code=202)
-async def import_csv(file: UploadFile = File(...)):
-    """Distributor CSV (date,item,outlet/town,qty,price) → normalised daily demand saved under data/built/imports.
-    Forecasting it into a plannable scenario is a batch job (R-7), never on the interactive path."""
+async def import_csv(background: BackgroundTasks, file: UploadFile = File(...), network_id: str = "kolhapur"):
+    """Distributor CSV (date,item,outlet/town,qty,price) → normalised daily demand saved under data/built/imports,
+    then forecast into a plannable scenario by a background job (R-7: never on the interactive path)."""
     try:
         from aria.data.csv_import import read_distributor_csv
     except ImportError as exc:
         raise HTTPException(503, f"CSV import not available: {exc}")
     try:
-        df = read_distributor_csv(io.BytesIO(await file.read()))
+        raw = await file.read()
+        df = read_distributor_csv(io.BytesIO(raw))
     except ValueError as exc:
         raise HTTPException(422, str(exc))
     sid = f"import-{uuid.uuid4().hex[:8]}"
     out = DATA / "built" / "imports"
     out.mkdir(parents=True, exist_ok=True)
-    df.to_csv(out / f"{sid}.csv", index=False)
+    (out / f"{sid}.csv").write_bytes(raw)
     known = set()
     for path in (DATA / "networks").glob("*.yaml"):
         for t in (yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("towns") or []:
@@ -165,6 +180,7 @@ async def import_csv(file: UploadFile = File(...)):
                 for t in sorted(df["town_id"].unique()) if t.lower() not in known]
     job = uuid.uuid4().hex
     JOBS[job] = {"status": "queued", "scenario_id": sid, "file": f"data/built/imports/{sid}.csv"}
+    background.add_task(_forecast_import, job, out / f"{sid}.csv", network_id)
     return {"scenario_id": sid, "rows": int(len(df)), "warnings": warnings, "forecast_job_id": job}
 
 

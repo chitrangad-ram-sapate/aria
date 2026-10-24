@@ -42,7 +42,8 @@ def fit_predict(df: pd.DataFrame, cutoff: pd.Timestamp, horizon: int = HORIZON, 
     assert train["ds"].max() < future["ds"].min(), "leakage"
     span = (cutoff - df["ds"].min()).days
     lags = [lag for lag in LAGS if lag * 2 <= span]  # short histories (e.g. CSV import) drop the yearly lag
-    models = {q: lgb.LGBMRegressor(objective="quantile", alpha=a, **LGB_PARAMS) for q, a in zip(QCOLS, QUANTILE_LEVELS)}
+    params = {**LGB_PARAMS, "n_jobs": -1 if len(train) > 100_000 else 1}  # small fits: avoid thread contention
+    models = {q: lgb.LGBMRegressor(objective="quantile", alpha=a, **params) for q, a in zip(QCOLS, QUANTILE_LEVELS)}
     fc = MLForecast(models=models, freq="D", lags=lags,
                     lag_transforms={28: [RollingMean(window_size=7), RollingMean(window_size=28), RollingStd(window_size=28)]},
                     date_features=["dayofweek", "month", "day"])
