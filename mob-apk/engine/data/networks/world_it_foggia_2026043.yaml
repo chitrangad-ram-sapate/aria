@@ -1,0 +1,136 @@
+network_id: world_it_foggia_2026043
+name: Foggia (Apulia, IT) - generated, seed 2026043
+country: IT
+godowns:
+- godown_id: G_FOGGIA
+  name: Foggia depot
+  lat: 41.4584
+  lon: 15.5519
+- godown_id: G_COSENZA
+  name: Cosenza depot
+  lat: 39.2989
+  lon: 16.2531
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  name: Giugliano in Campania depot
+  lat: 40.9285
+  lon: 14.202
+towns:
+- town_id: T_FOGGIA
+  name: Foggia
+  population_2011: 137032
+  lat: 41.4584
+  lon: 15.5519
+  country: IT
+  admin1: Apulia
+  tz: Europe/Rome
+- town_id: T_COSENZA
+  name: Cosenza
+  population_2011: 63852
+  lat: 39.2989
+  lon: 16.2531
+  country: IT
+  admin1: Calabria
+  tz: Europe/Rome
+- town_id: T_GIUGLIANO_IN_CAMPANIA
+  name: Giugliano in Campania
+  population_2011: 80269
+  lat: 40.9285
+  lon: 14.202
+  country: IT
+  admin1: Campania
+  tz: Europe/Rome
+- town_id: T_MANFREDONIA
+  name: Manfredonia
+  population_2011: 56932
+  lat: 41.6306
+  lon: 15.9188
+  country: IT
+  admin1: Apulia
+  tz: Europe/Rome
+- town_id: T_SAN_FELICE_A_CANCELLO
+  name: San Felice A Cancello
+  population_2011: 16571
+  lat: 41.017
+  lon: 14.4874
+  country: IT
+  admin1: Campania
+  tz: Europe/Rome
+routes:
+- godown_id: G_FOGGIA
+  town_id: T_FOGGIA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FOGGIA
+  town_id: T_COSENZA
+  road_km: 309.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_FOGGIA
+  town_id: T_GIUGLIANO_IN_CAMPANIA
+  road_km: 159.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_FOGGIA
+  town_id: T_MANFREDONIA
+  road_km: 45.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FOGGIA
+  town_id: T_SAN_FELICE_A_CANCELLO
+  road_km: 127.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_COSENZA
+  town_id: T_FOGGIA
+  road_km: 309.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_COSENZA
+  town_id: T_COSENZA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_COSENZA
+  town_id: T_GIUGLIANO_IN_CAMPANIA
+  road_km: 314.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_COSENZA
+  town_id: T_MANFREDONIA
+  road_km: 326.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_COSENZA
+  town_id: T_SAN_FELICE_A_CANCELLO
+  road_km: 303.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  town_id: T_FOGGIA
+  road_km: 159.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  town_id: T_COSENZA
+  road_km: 314.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  town_id: T_GIUGLIANO_IN_CAMPANIA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  town_id: T_MANFREDONIA
+  road_km: 204.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_GIUGLIANO_IN_CAMPANIA
+  town_id: T_SAN_FELICE_A_CANCELLO
+  road_km: 32.4
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

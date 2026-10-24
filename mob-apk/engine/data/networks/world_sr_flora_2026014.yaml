@@ -1,0 +1,233 @@
+network_id: world_sr_flora_2026014
+name: Flora (Paramaribo District, SR) - generated, seed 2026014
+country: SR
+godowns:
+- godown_id: G_FLORA
+  name: Flora depot
+  lat: 5.8
+  lon: -55.2
+- godown_id: G_RAINVILLE
+  name: Rainville depot
+  lat: 5.8344
+  lon: -55.1377
+towns:
+- town_id: T_FLORA
+  name: Flora
+  population_2011: 19538
+  lat: 5.8
+  lon: -55.2
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_BEEKHUIZEN
+  name: Beekhuizen
+  population_2011: 17185
+  lat: 5.8058
+  lon: -55.1737
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_BLAUWGROND
+  name: Blauwgrond
+  population_2011: 31483
+  lat: 5.8434
+  lon: -55.1193
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_LATOUR
+  name: Latour
+  population_2011: 29526
+  lat: 5.7967
+  lon: -55.2086
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_LELYDORP
+  name: Lelydorp
+  population_2011: 18223
+  lat: 5.7
+  lon: -55.2333
+  country: SR
+  admin1: Wanica District
+  tz: America/Paramaribo
+- town_id: T_MUNDER_BUITEN
+  name: Munder Buiten
+  population_2011: 17234
+  lat: 5.8412
+  lon: -55.1825
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_PARAMARIBO
+  name: Paramaribo
+  population_2011: 223757
+  lat: 5.8664
+  lon: -55.1668
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_PONTBUITEN
+  name: Pontbuiten
+  population_2011: 23211
+  lat: 5.7881
+  lon: -55.209
+  country: SR
+  admin1: Wanica District
+  tz: America/Paramaribo
+- town_id: T_RAINVILLE
+  name: Rainville
+  population_2011: 22747
+  lat: 5.8344
+  lon: -55.1377
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_TAMMENGA
+  name: Tammenga
+  population_2011: 15819
+  lat: 5.8289
+  lon: -55.202
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_WEG_NAAR_ZEE
+  name: Weg naar Zee
+  population_2011: 16037
+  lat: 5.8713
+  lon: -55.2149
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+- town_id: T_WELGELEGEN
+  name: Welgelegen
+  population_2011: 19304
+  lat: 5.8421
+  lon: -55.2186
+  country: SR
+  admin1: Paramaribo District
+  tz: America/Paramaribo
+routes:
+- godown_id: G_FLORA
+  town_id: T_FLORA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_BEEKHUIZEN
+  road_km: 3.7
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_BLAUWGROND
+  road_km: 12.7
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_LATOUR
+  road_km: 1.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_LELYDORP
+  road_km: 14.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_MUNDER_BUITEN
+  road_km: 6.2
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_PARAMARIBO
+  road_km: 10.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_PONTBUITEN
+  road_km: 2.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_RAINVILLE
+  road_km: 9.9
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_TAMMENGA
+  road_km: 4.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_WEG_NAAR_ZEE
+  road_km: 10.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_FLORA
+  town_id: T_WELGELEGEN
+  road_km: 6.4
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_FLORA
+  road_km: 9.9
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_BEEKHUIZEN
+  road_km: 6.4
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_BLAUWGROND
+  road_km: 2.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_LATOUR
+  road_km: 11.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_LELYDORP
+  road_km: 22.9
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_MUNDER_BUITEN
+  road_km: 6.3
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_PARAMARIBO
+  road_km: 6.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_PONTBUITEN
+  road_km: 11.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_RAINVILLE
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_TAMMENGA
+  road_km: 8.9
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_WEG_NAAR_ZEE
+  road_km: 11.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_RAINVILLE
+  town_id: T_WELGELEGEN
+  road_km: 11.2
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

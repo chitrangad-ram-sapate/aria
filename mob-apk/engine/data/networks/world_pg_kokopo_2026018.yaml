@@ -1,0 +1,26 @@
+network_id: world_pg_kokopo_2026018
+name: Kokopo (East New Britain Province, PG) - generated, seed 2026018
+country: PG
+godowns:
+- godown_id: G_KOKOPO
+  name: Kokopo depot
+  lat: -4.3432
+  lon: 152.2687
+towns:
+- town_id: T_KOKOPO
+  name: Kokopo
+  population_2011: 26273
+  lat: -4.3432
+  lon: 152.2687
+  country: PG
+  admin1: East New Britain Province
+  tz: Pacific/Port_Moresby
+routes:
+- godown_id: G_KOKOPO
+  town_id: T_KOKOPO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

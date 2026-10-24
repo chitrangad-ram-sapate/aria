@@ -1,0 +1,137 @@
+network_id: world_no_nesttun_2026033
+name: Nesttun (Vestland, NO) - generated, seed 2026033
+country: 'NO'
+godowns:
+- godown_id: G_NESTTUN
+  name: Nesttun depot
+  lat: 60.3182
+  lon: 5.3532
+- godown_id: G_KRISTIANSUND
+  name: Kristiansund depot
+  lat: 63.1104
+  lon: 7.728
+- godown_id: G_SANDEFJORD
+  name: Sandefjord depot
+  lat: 59.1312
+  lon: 10.2166
+- godown_id: G_ASANE
+  name: Åsane depot
+  lat: 60.4744
+  lon: 5.325
+towns:
+- town_id: T_NESTTUN
+  name: Nesttun
+  population_2011: 35638
+  lat: 60.3182
+  lon: 5.3532
+  country: 'NO'
+  admin1: Vestland
+  tz: Europe/Oslo
+- town_id: T_KRISTIANSUND
+  name: Kristiansund
+  population_2011: 24013
+  lat: 63.1104
+  lon: 7.728
+  country: 'NO'
+  admin1: Møre og Romsdal
+  tz: Europe/Oslo
+- town_id: T_SANDEFJORD
+  name: Sandefjord
+  population_2011: 64345
+  lat: 59.1312
+  lon: 10.2166
+  country: 'NO'
+  admin1: Vestfold
+  tz: Europe/Oslo
+- town_id: T_ASANE
+  name: Åsane
+  population_2011: 40146
+  lat: 60.4744
+  lon: 5.325
+  country: 'NO'
+  admin1: Vestland
+  tz: Europe/Oslo
+routes:
+- godown_id: G_NESTTUN
+  town_id: T_NESTTUN
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_NESTTUN
+  town_id: T_KRISTIANSUND
+  road_km: 418.4
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_NESTTUN
+  town_id: T_SANDEFJORD
+  road_km: 378.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_NESTTUN
+  town_id: T_ASANE
+  road_km: 21.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KRISTIANSUND
+  town_id: T_NESTTUN
+  road_km: 418.4
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KRISTIANSUND
+  town_id: T_KRISTIANSUND
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KRISTIANSUND
+  town_id: T_SANDEFJORD
+  road_km: 577.7
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KRISTIANSUND
+  town_id: T_ASANE
+  road_km: 398.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SANDEFJORD
+  town_id: T_NESTTUN
+  road_km: 378.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SANDEFJORD
+  town_id: T_KRISTIANSUND
+  road_km: 577.7
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_SANDEFJORD
+  town_id: T_SANDEFJORD
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_SANDEFJORD
+  town_id: T_ASANE
+  road_km: 389.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ASANE
+  town_id: T_NESTTUN
+  road_km: 21.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_ASANE
+  town_id: T_KRISTIANSUND
+  road_km: 398.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ASANE
+  town_id: T_SANDEFJORD
+  road_km: 389.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ASANE
+  town_id: T_ASANE
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

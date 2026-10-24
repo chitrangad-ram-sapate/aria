@@ -1,0 +1,137 @@
+network_id: world_cv_espargos_329304183
+name: Espargos (Sal, CV) - generated, seed 329304183
+country: CV
+godowns:
+- godown_id: G_ESPARGOS
+  name: Espargos depot
+  lat: 16.7552
+  lon: -22.9446
+- godown_id: G_ASSOMADA
+  name: Assomada depot
+  lat: 15.1
+  lon: -23.6833
+- godown_id: G_PRAIA
+  name: Praia depot
+  lat: 14.9315
+  lon: -23.5125
+- godown_id: G_MINDELO
+  name: Mindelo depot
+  lat: 16.8901
+  lon: -24.9804
+towns:
+- town_id: T_ESPARGOS
+  name: Espargos
+  population_2011: 24500
+  lat: 16.7552
+  lon: -22.9446
+  country: CV
+  admin1: Sal
+  tz: Atlantic/Cape_Verde
+- town_id: T_ASSOMADA
+  name: Assomada
+  population_2011: 21297
+  lat: 15.1
+  lon: -23.6833
+  country: CV
+  admin1: Santa Catarina
+  tz: Atlantic/Cape_Verde
+- town_id: T_PRAIA
+  name: Praia
+  population_2011: 137868
+  lat: 14.9315
+  lon: -23.5125
+  country: CV
+  admin1: Praia
+  tz: Atlantic/Cape_Verde
+- town_id: T_MINDELO
+  name: Mindelo
+  population_2011: 69013
+  lat: 16.8901
+  lon: -24.9804
+  country: CV
+  admin1: São Vicente
+  tz: Atlantic/Cape_Verde
+routes:
+- godown_id: G_ESPARGOS
+  town_id: T_ESPARGOS
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_ESPARGOS
+  town_id: T_ASSOMADA
+  road_km: 250.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ESPARGOS
+  town_id: T_PRAIA
+  road_km: 264.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ESPARGOS
+  town_id: T_MINDELO
+  road_km: 271.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ASSOMADA
+  town_id: T_ESPARGOS
+  road_km: 250.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_ASSOMADA
+  town_id: T_ASSOMADA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_ASSOMADA
+  town_id: T_PRAIA
+  road_km: 32.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_ASSOMADA
+  town_id: T_MINDELO
+  road_km: 303.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_PRAIA
+  town_id: T_ESPARGOS
+  road_km: 264.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_PRAIA
+  town_id: T_ASSOMADA
+  road_km: 32.8
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_PRAIA
+  town_id: T_PRAIA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_PRAIA
+  town_id: T_MINDELO
+  road_km: 335.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MINDELO
+  town_id: T_ESPARGOS
+  road_km: 271.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MINDELO
+  town_id: T_ASSOMADA
+  road_km: 303.2
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MINDELO
+  town_id: T_PRAIA
+  road_km: 335.6
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MINDELO
+  town_id: T_MINDELO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

@@ -1,0 +1,90 @@
+network_id: world_mh_majuro_2026010
+name: Majuro (Majuro Atoll, MH) - generated, seed 2026010
+country: MH
+godowns:
+- godown_id: G_MAJURO
+  name: Majuro depot
+  lat: 7.0897
+  lon: 171.3803
+- godown_id: G_DALAP_ULIGA_DORRIT
+  name: Dalap-Uliga-Dorrit depot
+  lat: 7.087
+  lon: 171.377
+- godown_id: G_TARAWA
+  name: Tarawa depot
+  lat: 1.3278
+  lon: 172.977
+towns:
+- town_id: T_MAJURO
+  name: Majuro
+  population_2011: 25400
+  lat: 7.0897
+  lon: 171.3803
+  country: MH
+  admin1: Majuro Atoll
+  tz: Pacific/Majuro
+- town_id: T_DALAP_ULIGA_DORRIT
+  name: Dalap-Uliga-Dorrit
+  population_2011: 20301
+  lat: 7.087
+  lon: 171.377
+  country: MH
+  admin1: Majuro Atoll
+  tz: Pacific/Majuro
+- town_id: T_TARAWA
+  name: Tarawa
+  population_2011: 40311
+  lat: 1.3278
+  lon: 172.977
+  country: KI
+  admin1: Gilbert Islands
+  tz: Pacific/Tarawa
+routes:
+- godown_id: G_MAJURO
+  town_id: T_MAJURO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MAJURO
+  town_id: T_DALAP_ULIGA_DORRIT
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MAJURO
+  town_id: T_TARAWA
+  road_km: 830.9
+  transit_days: 3
+  vehicle_class: road_avg
+- godown_id: G_DALAP_ULIGA_DORRIT
+  town_id: T_MAJURO
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DALAP_ULIGA_DORRIT
+  town_id: T_DALAP_ULIGA_DORRIT
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_DALAP_ULIGA_DORRIT
+  town_id: T_TARAWA
+  road_km: 830.6
+  transit_days: 3
+  vehicle_class: road_avg
+- godown_id: G_TARAWA
+  town_id: T_MAJURO
+  road_km: 830.9
+  transit_days: 3
+  vehicle_class: road_avg
+- godown_id: G_TARAWA
+  town_id: T_DALAP_ULIGA_DORRIT
+  road_km: 830.6
+  transit_days: 3
+  vehicle_class: road_avg
+- godown_id: G_TARAWA
+  town_id: T_TARAWA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

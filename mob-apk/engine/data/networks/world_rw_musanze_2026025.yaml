@@ -1,0 +1,205 @@
+network_id: world_rw_musanze_2026025
+name: Musanze (Northern Province, RW) - generated, seed 2026025
+country: RW
+godowns:
+- godown_id: G_MUSANZE
+  name: Musanze depot
+  lat: -1.4998
+  lon: 29.635
+- godown_id: G_CIBITOKE
+  name: Cibitoke depot
+  lat: -2.8869
+  lon: 29.1248
+- godown_id: G_KYEGEGWA
+  name: Kyegegwa depot
+  lat: 0.5022
+  lon: 31.0414
+towns:
+- town_id: T_MUSANZE
+  name: Musanze
+  population_2011: 153368
+  lat: -1.4998
+  lon: 29.635
+  country: RW
+  admin1: Northern Province
+  tz: Africa/Kigali
+- town_id: T_CIBITOKE
+  name: Cibitoke
+  population_2011: 36959
+  lat: -2.8869
+  lon: 29.1248
+  country: BI
+  admin1: Cibitoke
+  tz: Africa/Bujumbura
+- town_id: T_HYOSHA
+  name: Hyosha
+  population_2011: 74502
+  lat: 0.6978
+  lon: 29.5186
+  country: CD
+  admin1: North Kivu
+  tz: Africa/Lubumbashi
+- town_id: T_CYANGUGU
+  name: Cyangugu
+  population_2011: 43866
+  lat: -2.4846
+  lon: 28.9075
+  country: RW
+  admin1: Western Province
+  tz: Africa/Kigali
+- town_id: T_RUHANGO
+  name: Ruhango
+  population_2011: 21478
+  lat: -2.2246
+  lon: 29.7909
+  country: RW
+  admin1: Southern Province
+  tz: Africa/Kigali
+- town_id: T_KAKUMIRO
+  name: Kakumiro
+  population_2011: 15900
+  lat: 0.7806
+  lon: 31.3236
+  country: UG
+  admin1: Western Region
+  tz: Africa/Kampala
+- town_id: T_KYEGEGWA
+  name: Kyegegwa
+  population_2011: 29400
+  lat: 0.5022
+  lon: 31.0414
+  country: UG
+  admin1: Western Region
+  tz: Africa/Kampala
+- town_id: T_LWENGO
+  name: Lwengo
+  population_2011: 15100
+  lat: -0.4161
+  lon: 31.4081
+  country: UG
+  admin1: Central Region
+  tz: Africa/Kampala
+routes:
+- godown_id: G_MUSANZE
+  town_id: T_MUSANZE
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_MUSANZE
+  town_id: T_CIBITOKE
+  road_km: 205.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_HYOSHA
+  road_km: 305.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_CYANGUGU
+  road_km: 170.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_RUHANGO
+  road_km: 103.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_KAKUMIRO
+  road_km: 394.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_KYEGEGWA
+  road_km: 340.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_MUSANZE
+  town_id: T_LWENGO
+  road_km: 288.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_MUSANZE
+  road_km: 205.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_CIBITOKE
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_CIBITOKE
+  town_id: T_HYOSHA
+  road_km: 501.2
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_CYANGUGU
+  road_km: 63.5
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_CIBITOKE
+  town_id: T_RUHANGO
+  road_km: 130.5
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_KAKUMIRO
+  road_km: 594.3
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_KYEGEGWA
+  road_km: 541.1
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_CIBITOKE
+  town_id: T_LWENGO
+  road_km: 467.5
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_MUSANZE
+  road_km: 340.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_CIBITOKE
+  road_km: 541.1
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_HYOSHA
+  road_km: 213.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_CYANGUGU
+  road_km: 510.2
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_RUHANGO
+  road_km: 416.9
+  transit_days: 2
+  vehicle_class: road_avg
+- godown_id: G_KYEGEGWA
+  town_id: T_KAKUMIRO
+  road_km: 55.1
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KYEGEGWA
+  town_id: T_KYEGEGWA
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KYEGEGWA
+  town_id: T_LWENGO
+  road_km: 137.4
+  transit_days: 1
+  vehicle_class: road_avg
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'

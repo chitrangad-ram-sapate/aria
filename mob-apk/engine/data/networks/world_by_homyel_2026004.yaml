@@ -1,0 +1,194 @@
+network_id: world_by_homyel_2026004
+name: Homyel' (Homyel’ Voblasc’, BY) - generated, seed 2026004
+country: BY
+godowns:
+- godown_id: G_HOMYEL
+  name: Homyel' depot
+  lat: 52.4345
+  lon: 30.9754
+- godown_id: G_KRYCHAW
+  name: Krychaw depot
+  lat: 53.7192
+  lon: 31.7136
+- godown_id: G_SVETLOGORSK
+  name: Svetlogorsk depot
+  lat: 52.6329
+  lon: 29.7389
+- godown_id: G_NOVOZYBKOV
+  name: Novozybkov depot
+  lat: 52.5371
+  lon: 31.9366
+- godown_id: G_CHERNIHIV
+  name: Chernihiv depot
+  lat: 51.5054
+  lon: 31.2866
+towns:
+- town_id: T_HOMYEL
+  name: Homyel'
+  population_2011: 501193
+  lat: 52.4345
+  lon: 30.9754
+  country: BY
+  admin1: Homyel’ Voblasc’
+  tz: Europe/Minsk
+- town_id: T_KRYCHAW
+  name: Krychaw
+  population_2011: 22973
+  lat: 53.7192
+  lon: 31.7136
+  country: BY
+  admin1: Mogilev
+  tz: Europe/Minsk
+- town_id: T_SVETLOGORSK
+  name: Svetlogorsk
+  population_2011: 61812
+  lat: 52.6329
+  lon: 29.7389
+  country: BY
+  admin1: Homyel’ Voblasc’
+  tz: Europe/Minsk
+- town_id: T_NOVOZYBKOV
+  name: Novozybkov
+  population_2011: 42571
+  lat: 52.5371
+  lon: 31.9366
+  country: RU
+  admin1: Bryansk Oblast
+  tz: Europe/Moscow
+- town_id: T_CHERNIHIV
+  name: Chernihiv
+  population_2011: 282747
+  lat: 51.5054
+  lon: 31.2866
+  country: UA
+  admin1: Chernihiv Oblast
+  tz: Europe/Kyiv
+routes:
+- godown_id: G_HOMYEL
+  town_id: T_HOMYEL
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_HOMYEL
+  town_id: T_KRYCHAW
+  road_km: 188.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_HOMYEL
+  town_id: T_SVETLOGORSK
+  road_km: 108.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_HOMYEL
+  town_id: T_NOVOZYBKOV
+  road_km: 82.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_HOMYEL
+  town_id: T_CHERNIHIV
+  road_km: 131.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KRYCHAW
+  town_id: T_HOMYEL
+  road_km: 188.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KRYCHAW
+  town_id: T_KRYCHAW
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_KRYCHAW
+  town_id: T_SVETLOGORSK
+  road_km: 223.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KRYCHAW
+  town_id: T_NOVOZYBKOV
+  road_km: 165.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_KRYCHAW
+  town_id: T_CHERNIHIV
+  road_km: 309.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SVETLOGORSK
+  town_id: T_HOMYEL
+  road_km: 108.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SVETLOGORSK
+  town_id: T_KRYCHAW
+  road_km: 223.3
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SVETLOGORSK
+  town_id: T_SVETLOGORSK
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_SVETLOGORSK
+  town_id: T_NOVOZYBKOV
+  road_km: 186.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_SVETLOGORSK
+  town_id: T_CHERNIHIV
+  road_km: 205.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_NOVOZYBKOV
+  town_id: T_HOMYEL
+  road_km: 82.6
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_NOVOZYBKOV
+  town_id: T_KRYCHAW
+  road_km: 165.4
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_NOVOZYBKOV
+  town_id: T_SVETLOGORSK
+  road_km: 186.1
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_NOVOZYBKOV
+  town_id: T_NOVOZYBKOV
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+- godown_id: G_NOVOZYBKOV
+  town_id: T_CHERNIHIV
+  road_km: 153.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CHERNIHIV
+  town_id: T_HOMYEL
+  road_km: 131.9
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CHERNIHIV
+  town_id: T_KRYCHAW
+  road_km: 309.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CHERNIHIV
+  town_id: T_SVETLOGORSK
+  road_km: 205.0
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CHERNIHIV
+  town_id: T_NOVOZYBKOV
+  road_km: 153.8
+  transit_days: 1
+  vehicle_class: road_avg
+- godown_id: G_CHERNIHIV
+  town_id: T_CHERNIHIV
+  road_km: 1.0
+  transit_days: 1
+  vehicle_class: 6t
+road_km_source: 'approximate: haversine x 1.25 detour factor (GeoNames coordinates)'
+population_source: GeoNames cities15000 (CC BY 4.0), population as published
+freight_rates: 'freight rates: default (override per region)'
