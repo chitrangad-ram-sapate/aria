@@ -16,3 +16,14 @@ mobile/android/build/
 mobile/android/.gradle/
 mobile/ios/App/build/
 mobile/ios/DerivedData/
+
+# mobile & web app
+mob-apk/node_modules/
+mob-apk/dist/
+mob-apk/.cache/
+mob-apk/public/pyodide/
+mob-apk/public/aria-bundle.zip
+mob-apk/android/app/build/
+mob-apk/android/build/
+mob-apk/android/.gradle/
+mob-apk/ios/App/build/

@@ -1,3 +1,0 @@
-# Build-time-only dependencies (one-time web fetches in aria.data.build / aria.params).
-# Not needed at demo time: the build runs with --offline from cached YAML values.
-scrapling[fetchers]==0.5
