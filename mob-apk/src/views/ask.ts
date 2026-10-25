@@ -1,10 +1,13 @@
-// Ask ARIA: a chat for what-if questions and how-to help. src/assistant.ts reads each question; this page re-plans
-// on the phone with engine.compare and answers in units, rupees and %. Every scenario asked here is also kept in
+// Ask ARIA: a chat for what-if questions and how-to help. Online with a key, the language model (src/ai.ts) reads each
+// question and words the explanation; otherwise, or if it fails, src/assistant.ts reads it with word rules. Either way
+// this page re-plans on the phone with engine.compare and answers in units, rupees and %. Every scenario asked here is also kept in
 // state.lab, so Results shows the comparison and the step-by-step trends too. All numbers come from the engine.
+import { explain, interpret, type AiAnswer } from '../ai';
+import { AI } from '../config';
 import { engine } from '../engine';
 import { compact, hbars, kpi as kpiCard, line, seriesColor } from '../charts';
 import { KPIS, chip, kpi } from '../kpis';
-import { Change, Ctx, Intent, SWEEP, SweepParam, describe, scenarioName, toParams, understand } from '../assistant';
+import { Change, Ctx, HELP_ANSWERS, Intent, SWEEP, SweepParam, describe, scenarioName, toParams, understand } from '../assistant';
 import { ChatMsg, currentHash, goTo, nextRid, state } from '../state';
 import { Json, badge, errorBox, h, icon, mount, num, rupees, table } from '../ui';
 import { truck } from './network';
@@ -64,7 +67,8 @@ function intro(): ChatMsg {
     return { id: 0, from: 'aria', text: 'Hi, I am ARIA. Load your data on Home first, then ask me what would happen tonight if something changes. You can also ask me how to use the app.',
       actions: [{ label: 'Go to Home', run: () => goTo('plan') }] };
   }
-  return { id: 0, from: 'aria', text: 'Hi, I am ARIA. Ask me what would happen tonight if something changes: more or less demand, a closed road, dearer freight, lost stock or less depot capacity. I plan again on this phone and tell you what changes. You can also ask me how to use the app.' };
+  return { id: 0, from: 'aria', text: 'Hi, I am ARIA. Ask me what would happen tonight if something changes: more or less demand, a closed road, dearer freight, lost stock or less depot capacity. I plan again on this phone and tell you what changes. You can also ask me how to use the app.',
+    notes: AI.key ? ['Online, your questions and the names in your data go to an AI service (Groq) so I understand them in your own words, in English, Hindi or Marathi. Every number is worked out on this phone.'] : undefined };
 }
 
 function bubble(m: ChatMsg) {
@@ -126,8 +130,31 @@ export function send(text: string) {
   queue = queue.then(() => answer(q)).catch(() => say({ from: 'aria', error: 'Something went wrong. Please ask again.' }));
 }
 
+const aiOn = () => !!AI.key && navigator.onLine;
+const PAGE_BUTTON: Record<string, string> = { plan: 'Go to Home', results: 'Open Results', team: 'Open Team', records: 'Open plan files' };
+
+/** The conversation so far as the language model sees it: questions, and what each answer said. */
+function history(upTo: number) {
+  return lab.chat.slice(Math.max(0, upTo - 10), upTo).filter((m) => !m.busy).map((m) => ({
+    role: m.from === 'me' ? 'user' as const : 'assistant' as const,
+    content: (m.from === 'me' ? m.text ?? '' : m.memo ?? [m.text, ...(m.lines ?? [])].filter(Boolean).join(' ')).slice(0, 500),
+  })).filter((m) => m.content);
+}
+
+const aiOpts = (upTo = lab.chat.length) => ({ ...AI, history: history(upTo), last: lab.last as Change[] | null, hasData: !!sc() });
+
 async function answer(q: string) {
-  const intent = understand(q, ctx(), lab.last as Change[] | null);
+  let ai: AiAnswer | null = null;
+  if (aiOn()) {
+    const opts = aiOpts(lab.chat.length - 1); // everything before this question
+    const wait = say({ from: 'aria', busy: 'Reading your question...' });
+    try { ai = await interpret(q, ctx(), opts); } catch { ai = null; } // offline, slow or odd: the word rules take over
+    lab.chat.splice(lab.chat.indexOf(wait), 1);
+  }
+  if (ai && !ai.intent) {
+    return say({ from: 'aria', text: ai.reply, notes: ai.notes, actions: ai.go ? [{ label: PAGE_BUTTON[ai.go], run: () => goTo(ai!.go!) }] : undefined });
+  }
+  const intent = ai?.intent ?? understand(q, ctx(), lab.last as Change[] | null);
   const needsData = intent.kind === 'scenario' || intent.kind === 'sweep' || intent.kind === 'today' || intent.kind === 'compare';
   if (needsData && !sc()) return say({ from: 'aria', text: 'I need your data for that. Load your CSV (or a sample) on Home first.', actions: [{ label: 'Go to Home', run: () => goTo('plan') }] });
   if (needsData && (state.validating || !state.report)) await waitForCheck();
@@ -194,7 +221,14 @@ async function scenario(q: string, intent: Extract<Intent, { kind: 'scenario' }>
       lab.last = null;
       return redraw(msg, { busy: '', error: 'This could not be planned. Try a smaller change, or check the route names.' });
     }
-    redraw(msg, { busy: '', body: () => scenarioCard(row, r, q), actions: scenarioActions() });
+    const story = { text: headline(row, r.baseline), ai: false };
+    redraw(msg, { busy: '', body: () => scenarioCard(row, r, q, story), actions: scenarioActions(), memo: `Tried ${changes.map((c) => describe(c, ctx())).join('; ')}. ${story.text}` });
+    if (aiOn()) {
+      explain(q, facts(row, r.baseline, changes), aiOpts()).then((s) => {
+        Object.assign(story, { text: s, ai: true });
+        redraw(msg, { memo: `Tried ${changes.map((c) => describe(c, ctx())).join('; ')}. ${s}` });
+      }).catch(() => { /* keep the app's own sentence */ });
+    }
   } catch {
     redraw(msg, { busy: '', error: 'Planning did not work this time. Please ask again.' });
   } finally {
@@ -224,6 +258,27 @@ function headline(row: Json, base: Json): string {
   return `${s[0].toUpperCase()}${s.slice(1)}.`;
 }
 
+/** The engine's figures for one scenario, as plain lines for the language model to explain (and nothing else). */
+function facts(row: Json, base: Json, changes: Change[]): string {
+  const lines = [`Changes tried: ${changes.map((c) => describe(c, ctx())).join('; ')}`, `Plan passes the safety check: ${row.verified ? 'yes' : 'no'}`];
+  for (const k of KPIS) {
+    if (base.kpis[k.key] == null || row.kpis[k.key] == null) continue;
+    const d = row.diff?.[k.key];
+    lines.push(`${k.label}: tonight ${k.fmt(base.kpis[k.key])}, with the change ${k.fmt(row.kpis[k.key])}${d?.pct != null ? ` (${d.pct > 0 ? '+' : ''}${d.pct.toFixed(1)}%)` : ''}`);
+  }
+  const before = new Map(base.towns.map((t: Json) => [t.town_id, t]));
+  for (const t of row.towns) {
+    const b: Json = before.get(t.town_id);
+    if (b && (b.short !== t.short || b.received !== t.received)) lines.push(`Town ${t.name}: receives ${num(b.received)} -> ${num(t.received)} units, short ${num(b.short)} -> ${num(t.short)} units`);
+  }
+  const dep = new Map(base.depots.map((d: Json) => [d.godown_id, d]));
+  for (const d of row.depots) {
+    const b: Json = dep.get(d.godown_id);
+    if (b && b.shipped !== d.shipped) lines.push(`Depot ${d.name}: ships ${num(b.shipped)} -> ${num(d.shipped)} units${d.capacity != null ? ` (capacity ${num(d.capacity)})` : ''}`);
+  }
+  return lines.join('\n');
+}
+
 function townsHit(row: Json, base: Json) {
   const before = new Map(base.towns.map((t: Json) => [t.town_id, t.short]));
   const moved = row.towns.map((t: Json) => ({ name: t.name, d: t.short - Number(before.get(t.town_id) ?? 0) })).filter((t: Json) => t.d !== 0).sort((a: Json, b: Json) => b.d - a.d);
@@ -237,11 +292,12 @@ function stale(r: Json, q: string) {
   return r.scenario_hash !== currentHash() && [h('p', { class: 'note' }, 'Your data changed after this answer.'), h('button', { class: 'btn small', onclick: () => send(q) }, 'Ask again')];
 }
 
-function scenarioCard(row: Json, r: Json, q: string) {
+function scenarioCard(row: Json, r: Json, q: string, story: { text: string; ai: boolean }) {
   const base = r.baseline;
   return h('div', { class: r.scenario_hash !== currentHash() ? 'stale' : '' },
     h('div', { class: 'row between' }, h('strong', {}, row.name), row.verified ? badge('Verified plan', 'ok') : badge('Not verified', 'bad')),
-    h('p', {}, headline(row, base)),
+    h('p', {}, story.text),
+    story.ai && h('p', { class: 'note' }, 'Explained by AI from the figures below, which come from the planner on this phone.'),
     row.recommended !== 'aria' && h('p', { class: 'note' }, 'ARIA could not make a safe plan here, so the usual method is shown.'),
     h('div', { class: 'kpi-grid' }, ['expected_fill_rate', 'expected_lost_margin_paise', 'freight_paise', 'shortfall_units'].filter((key) => row.kpis[key] != null)
       .map((key) => { const k = kpi(key); return kpiCard(k.label, k.fmt(row.kpis[key]), `tonight ${k.fmt(base.kpis[key])}`, chip(row.diff[key], k)); })),
@@ -354,25 +410,8 @@ function reset() {
 }
 
 // ---------- how to use the app ----------
-const HELP: Record<string, { text: string; go?: [string, string] }> = {
-  hello: { text: 'I answer two kinds of questions. "What if" questions about tonight: more or less demand (all towns, one town or one product), depot capacity, freight rates, stock lost, trade margin, closed roads and truck limits. I plan again on this phone and compare with tonight. And questions about using ARIA: loading data, planning, sending trips, drivers, deliveries and plan files.' },
-  whatif: { text: 'Ask in your own words, for example "what if demand rises 20% in Pune and the longest route closes?". Start with "also" to add to the last one, say "what about 30%?" to change its number, "which is best?" to compare them all, "demand from -20% to 40% step by step" for a range, or "undo".' },
-  fill: { text: 'Demand met (fill rate) is the share of the demand expected tonight that the plan covers. Lost sales value is the margin lost on demand that is not met. Freight cost is what the trucks cost for tonight\'s loads. Shortage units are units that towns need but do not get.' },
-  data: { text: 'On Home, tap "Upload your data (CSV)". "Get a template" gives a file with every section to fill in. No file yet? "Try a sample dataset instead" loads an example.', go: ['plan', 'Go to Home'] },
-  stock: { text: 'On Home, open "Edit stock", change the numbers and tap "Save stock". The plan is then marked out of date: plan again to use the new stock.', go: ['plan', 'Go to Home'] },
-  scan: { text: 'On Home, tap "Scan labels" and point the camera at a lot label. ARIA checks each label against your data; "Update stock and plan again" adds the stock and shows what changed.', go: ['plan', 'Go to Home'] },
-  verify: { text: 'Every plan is checked against 8 safety rules, such as enough stock, shelf life on arrival, open routes and depot capacity. A plan that breaks a rule is not used; it is marked "Not verified".', go: ['results', 'Open Results'] },
-  plan: { text: 'Tap the button in the middle of the bar at the bottom, or "Plan tonight" on Home. ARIA plans on this phone in a few seconds and checks the plan before showing it.', go: ['plan', 'Go to Home'] },
-  trips: { text: 'Plan tonight first. Then open Team: each depot\'s load becomes one trip. Choose a driver for each and tap "Send trips to drivers". Drivers see their stops on their phone.', go: ['team', 'Open Team'] },
-  team: { text: 'Open Team to see your join code. A driver installs ARIA, taps "I am a driver: join my team" and enters the code. You can pause a driver there too.', go: ['team', 'Open Team'] },
-  planfile: { text: 'A plan file is a locked copy of a plan that only your team can open. Find them under the file button at the top right. "Share plan" sends one to drivers in the app or to WhatsApp or email.', go: ['records', 'Open plan files'] },
-  delivery: { text: 'At each stop the driver\'s phone checks they are at the shop. You give the shop a one-time code; the driver enters it as proof of delivery, and you confirm the delivery in Team.', go: ['team', 'Open Team'] },
-  results: { text: 'Results shows tonight\'s plan in charts: demand met, freight, depot loads and shortages, plus every scenario you asked me about.', go: ['results', 'Open Results'] },
-  offline: { text: 'Planning and my answers work on this phone without internet. Sending trips, reports and plan files needs a connection; they go out when the phone is back online.' },
-};
-
 function help(topic: string) {
-  const a = HELP[topic] ?? HELP.hello;
+  const a = HELP_ANSWERS[topic] ?? HELP_ANSWERS.hello;
   say({ from: 'aria', text: a.text, actions: a.go ? [{ label: a.go[1], run: () => goTo(a.go![0]) }] : undefined });
 }
 

@@ -635,3 +635,23 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - Scenarios asked in the chat are kept in `state.lab`, so Results still shows the comparison and the step-by-step trends.
 - `analysis.apply` now takes a list of towns, products or depots as well as one id or `*`, so "Kolhapur and Jaysingpur" is one change.
 **Tests:** `npm run assistant-test` has 55 checks on two samples. The end-to-end test asks 10 questions: a follow-up, a new number, a truck limit, a comparison, shortages, a how-to answer, an unknown question, a range, undo, and typed text kept across pages. The engine tests include a new test for lists. All suites pass.
+
+### D-050 · Ask ARIA uses an AI model to read questions and explain results; the word rules stay as the fallback · Accepted
+**Context:** the word rules in D-049 read only the phrasings they were written for, and only in English. The team provided a Groq API key and asked for an AI chatbot.
+**Decision:**
+- `src/ai.ts` calls Groq (`openai/gpt-oss-120b`; `openai/gpt-oss-20b` when the first is rate-limited) straight from the app. Groq allows calls from the app's web view (CORS), so no server is needed, and the Spark plan has no Cloud Functions anyway.
+- **The AI never makes the numbers:**
+  1. `interpret()` turns a question into the same structured request the word rules make. `checkChanges()` keeps only the ids that are in the data and amounts within the engine's limits; names it drops are listed in the answer.
+  2. `engine.compare` plans on the phone, exactly as before.
+  3. `explain()` writes at most two sentences from the planner's figures only. The cards below them still show the real numbers, under the note "Explained by AI from the figures below".
+- Questions in Hindi or Marathi, misspellings and loose wording now work. How-to questions get a free answer from the app guide (`HELP_ANSWERS`), with a page button.
+- **Fallback:** offline, with no key, on a timeout (12 s), on a rate limit on both models, or on a reply that is not valid JSON, the chat uses the word rules (`src/assistant.ts`) without a message.
+- **Small prompts:** Groq's free tier allows 8,000 tokens a minute per model. The prompt sends towns, depots, product groups and only the products the question names; the app works out the routes from the towns and depots named. A question costs about 2,000 tokens.
+- **Key and privacy:**
+  - the key is read from `.env.local` (`VITE_GROQ_API_KEY`, git-ignored) and is never in the repo;
+  - it is built into the APK, so anyone with the APK could extract it; use a key with a spending limit and rotate it if the APK is shared widely;
+  - online, questions and the data's town, depot and product names go to Groq; stock, demand and plan figures go only in the explanation request. The chat's first message says so.
+**Tests:**
+- `npm run ai-test`: 11 checks against the live service (Hindi, Marathi, a follow-up, a product group, a made-up town refused, a range, shortages, a how-to answer, an off-topic question, and an explanation that uses only the figures given).
+- The smoke test blocks Groq (so the word rules are tested) and fakes it for one Hindi question, one answer with a page button and one broken reply.
+- All suites pass.

@@ -79,6 +79,7 @@ try {
   await box.fill('What if demand rises 20% in Kolhapur and Shiroli loads 30% less?');
   await box.press('Enter');
   await page.locator('.msg.aria .kpi-grid').first().waitFor({ timeout: 300_000 });
+  await page.getByText('Explained by AI from the figures below').waitFor({ timeout: 30_000 }).catch(() => console.log('note: no AI explanation (no key, offline or rate limit)'));
   await box.blur();
   await settle();
   await shot('admin-8-whatif', page.locator('.msg.me').first());

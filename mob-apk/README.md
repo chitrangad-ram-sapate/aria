@@ -26,7 +26,7 @@ Views:
 - **Home:** load your data CSV (or a sample), plan, network diagram, shortages, pick lists, editable stock with Save, `.svcr`.
 - **GeoProof deliveries:** drivers start a trip and open each town; Delivered unlocks only when the phone's location is at the shop, then the shop's delivery code and the admin's confirmation complete it. Admins follow every stop under Team → Deliveries, with a map. See `docs/geoproof.md`.
 - **Scan labels (Home):** scan a product or lot label (QR or barcode) with the camera or type its code; ARIA checks it, asks for anything missing, refuses what cannot be right, then updates the stock, plans again and shows the new plan against the old one.
-- **Ask ARIA:** a chat. Questions in plain words ("what if demand rises 20% in Pune and the longest route closes?") become scenarios, planned again on the phone and compared with tonight. Follow-ups ("also...", "what about 30%?"), ranges step by step, "which is best?", tonight's shortages, and how-to answers for the app. It runs on the phone with word rules and the names in the data: no internet, no AI service, nothing leaves the phone.
+- **Ask ARIA:** a chat. Questions in plain words ("what if demand rises 20% in Pune and the longest route closes?") become scenarios, planned again on the phone and compared with tonight. Follow-ups ("also...", "what about 30%?"), ranges step by step, "which is best?", tonight's shortages, and how-to answers for the app. Online, an AI model (Groq) reads each question, in English, Hindi or Marathi, and explains the result in two sentences. The app checks every name and amount it returns against the data, and the planner on the phone works out every number. Offline, without a key, or if the AI fails, the chat reads questions with its own word rules. The key goes in `.env.local` as `VITE_GROQ_API_KEY` (see `.env.example`); it is built into the app, so use a key with a spending limit.
 - **Results:** dashboard with KPIs, network, charts, scenario comparison and, for samples, the historical replay.
 - **Files:** open `.svcr` plan files.
 
@@ -59,7 +59,8 @@ npm run smoke        # headless Chrome at phone size, with the emulators running
 cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest tests app_tests -q
 npm run screenshots  # with the emulators running: the README screenshots, admin and driver, into ../docs/screenshots/
 npm run emulators    # local sign-in and database for testing (needs Java 11+); smoke uses them via ?emulators=1
-npm run assistant-test # how Ask ARIA reads 50+ questions, against the names in two samples
+npm run assistant-test # how Ask ARIA's word rules read 50+ questions, against the names in two samples
+npm run ai-test      # Ask ARIA's AI against the live Groq service (needs the key in .env.local)
 npm run rules-test   # tries what a careless or curious user might: other teams' data, own role, paused access
 npm run deploy:rules # publish firestore.rules and indexes to the live project
 ```

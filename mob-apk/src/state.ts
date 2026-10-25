@@ -8,7 +8,9 @@ import type { Json } from './ui';
 export type Variant = { id: string; name: string; params: Json; changes?: Json[] };
 /** One line of the Ask ARIA chat. body draws rich content (cards, charts) from data kept in its closure. */
 export type ChatMsg = { id: number; from: 'me' | 'aria'; text?: string; lines?: string[]; notes?: string[]; busy?: string; error?: string;
-  body?: () => Node; actions?: { label: string; run: () => void }[] };
+  body?: () => Node; actions?: { label: string; run: () => void }[];
+  memo?: string; // what this answer said, for the language model's view of the conversation
+};
 
 export const state = {
   networks: [] as Json[],

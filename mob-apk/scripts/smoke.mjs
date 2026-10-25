@@ -19,13 +19,22 @@ const url = 'http://localhost:4179/?emulators=1';
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
 const page = await context.newPage();
+// Ask ARIA's language model: blocked by default (the chat must work on its word rules, as offline), and faked when a
+// step sets aiReply, so the run never depends on Groq or its rate limit. scripts/ai-test.mjs checks the real service.
+let aiReplies = [];
+await context.route('https://api.groq.com/**', (route) => {
+  const next = aiReplies.shift();
+  if (next == null) return route.abort();
+  return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: typeof next === 'string' ? next : JSON.stringify(next) } }] }) });
+});
 const run = Date.now().toString(36);
 const ADMIN = { name: 'Asha Patil', team: 'Patil Distributors', email: `admin-${run}@example.com`, password: 'secret123' };
 const DRIVER = { name: 'Ravi Kumar', phone: '9876543210', vehicle: 'MH09 AB 1234', email: `driver-${run}@example.com`, password: 'secret123' };
 const errors = [];
 page.on('pageerror', (e) => errors.push(`admin: ${e} ${String(e.stack).split(String.fromCharCode(10)).slice(1, 4).join(' | ')}`));
 let allow400 = false; // the wrong-password step makes the sign-in service answer 400 on purpose
-page.on('console', (m) => { if (m.type() === 'error' && !(allow400 && /status of 400/.test(m.text()))) errors.push(m.text()); });
+page.on('console', (m) => { if (m.type() === 'error' && !(allow400 && /status of 400/.test(m.text())) && !/api.groq.com/.test(m.location().url ?? '')) errors.push(m.text()); });
 const out = mkdtempSync(join(tmpdir(), 'aria-e2e-'));
 const step = (msg) => console.log(`ok  ${msg}`);
 const shot = (name) => page.screenshot({ path: join(out, `${name}.png`), fullPage: true });
@@ -237,6 +246,22 @@ try {
   await ask('the weather is nice');
   await page.getByText('Sorry, I did not get that.').waitFor();
   step('Ask ARIA: comparison of all scenarios, shortages tonight, a how-to answer with a button, and an unknown question');
+
+  // with the language model (faked): a Hindi question read into a change, checked, planned, then explained
+  aiReplies = [{ kind: 'scenario', changes: [{ topic: 'demand', pct: 15, towns: ['T_KOLHAPUR', 'T_NOWHERE'] }], reply: '' }, 'Kolhapur mein maang badhne se kami thodi badhti hai.'];
+  await ask('Kolhapur mein maang 15% badh jaye to?');
+  await page.getByText('Explained by AI from the figures below').waitFor({ timeout: 300_000 });
+  expect(await page.locator('.msg.aria ul.said').last().textContent() === 'Demand up 15% in Kolhapur', 'AI change not checked against the data');
+  await page.getByText('I left out names that are not in your data (T_NOWHERE)').waitFor();
+  await page.getByText('Kolhapur mein maang badhne se kami thodi badhti hai.').waitFor();
+  aiReplies = [{ kind: 'answer', reply: 'Open Team and choose a driver for each trip.', go: 'team' }];
+  await ask('trip kaise bhejun?');
+  await page.getByText('Open Team and choose a driver for each trip.').waitFor();
+  await page.locator('.msg.aria').last().getByRole('button', { name: 'Open Team' }).waitFor();
+  aiReplies = ['not json at all'];
+  await ask('What if freight is 25% dearer?');
+  await page.locator('.msg.aria ul.said', { hasText: 'Freight rates up 25%' }).waitFor({ timeout: 300_000 });
+  step('Ask ARIA with the language model (faked): a Hindi question checked against the data, planned and explained; an answer with a page button; a broken reply falls back to the word rules');
   await shot('06-whatif');
 
   const typed = 'half typed question';

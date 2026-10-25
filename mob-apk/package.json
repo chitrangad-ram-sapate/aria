@@ -17,6 +17,7 @@
     "rules-test": "node scripts/rules-test.mjs",
     "geofence-test": "node --no-warnings scripts/geofence-test.mjs",
     "assistant-test": "node --no-warnings scripts/assistant-test.mjs",
+    "ai-test": "node --no-warnings scripts/ai-test.mjs",
     "deploy:rules": "npx -y firebase-tools@13 deploy --only firestore --project aria-triwiz"
   },
   "dependencies": {

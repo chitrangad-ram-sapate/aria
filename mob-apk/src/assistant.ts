@@ -436,3 +436,21 @@ export function scenarioName(changes: Change[], ctx: Ctx): string {
   const name = changes.map(one).join(' + ');
   return name.length > 42 ? `${name.slice(0, 40)}…` : name;
 }
+
+/** How-to answers, shared by the word rules and the language model (its guide to the app). go: [page, button]. */
+export const HELP_ANSWERS: Record<string, { text: string; go?: [string, string] }> = {
+  hello: { text: 'I answer two kinds of questions. "What if" questions about tonight: more or less demand (all towns, one town or one product), depot capacity, freight rates, stock lost, trade margin, closed roads and truck limits. I plan again on this phone and compare with tonight. And questions about using ARIA: loading data, planning, sending trips, drivers, deliveries and plan files.' },
+  whatif: { text: 'Ask in your own words, for example "what if demand rises 20% in Pune and the longest route closes?". Start with "also" to add to the last one, say "what about 30%?" to change its number, "which is best?" to compare them all, "demand from -20% to 40% step by step" for a range, or "undo".' },
+  fill: { text: 'Demand met (fill rate) is the share of the demand expected tonight that the plan covers. Lost sales value is the margin lost on demand that is not met. Freight cost is what the trucks cost for tonight\'s loads. Shortage units are units that towns need but do not get.' },
+  data: { text: 'On Home, tap "Upload your data (CSV)". "Get a template" gives a file with every section to fill in. No file yet? "Try a sample dataset instead" loads an example.', go: ['plan', 'Go to Home'] },
+  stock: { text: 'On Home, open "Edit stock", change the numbers and tap "Save stock". The plan is then marked out of date: plan again to use the new stock.', go: ['plan', 'Go to Home'] },
+  scan: { text: 'On Home, tap "Scan labels" and point the camera at a lot label. ARIA checks each label against your data; "Update stock and plan again" adds the stock and shows what changed.', go: ['plan', 'Go to Home'] },
+  verify: { text: 'Every plan is checked against 8 safety rules, such as enough stock, shelf life on arrival, open routes and depot capacity. A plan that breaks a rule is not used; it is marked "Not verified".', go: ['results', 'Open Results'] },
+  plan: { text: 'Tap the button in the middle of the bar at the bottom, or "Plan tonight" on Home. ARIA plans on this phone in a few seconds and checks the plan before showing it.', go: ['plan', 'Go to Home'] },
+  trips: { text: 'Plan tonight first. Then open Team: each depot\'s load becomes one trip. Choose a driver for each and tap "Send trips to drivers". Drivers see their stops on their phone.', go: ['team', 'Open Team'] },
+  team: { text: 'Open Team to see your join code. A driver installs ARIA, taps "I am a driver: join my team" and enters the code. You can pause a driver there too.', go: ['team', 'Open Team'] },
+  planfile: { text: 'A plan file is a locked copy of a plan that only your team can open. Find them under the file button at the top right. "Share plan" sends one to drivers in the app or to WhatsApp or email.', go: ['records', 'Open plan files'] },
+  delivery: { text: 'At each stop the driver\'s phone checks they are at the shop. You give the shop a one-time code; the driver enters it as proof of delivery, and you confirm the delivery in Team.', go: ['team', 'Open Team'] },
+  results: { text: 'Results shows tonight\'s plan in charts: demand met, freight, depot loads and shortages, plus every scenario you asked me about.', go: ['results', 'Open Results'] },
+  offline: { text: 'Planning works on this phone without internet, and so do my answers (online I understand more ways of asking). Sending trips, reports and plan files needs a connection; they go out when the phone is back online.' },
+};
