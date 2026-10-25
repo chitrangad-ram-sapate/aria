@@ -57,6 +57,7 @@ npm run smoke        # headless Chrome at phone size, with the emulators running
                      # Results charts, stock Save, What if, .svcr export, reload; a driver joins, gets, loads and
                      # delivers a trip, reports a problem and is paused; sign out and back in
 cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest tests app_tests -q
+npm run screenshots  # with the emulators running: the README screenshots, admin and driver, into ../docs/screenshots/
 npm run emulators    # local sign-in and database for testing (needs Java 11+); smoke uses them via ?emulators=1
 npm run rules-test   # tries what a careless or curious user might: other teams' data, own role, paused access
 npm run deploy:rules # publish firestore.rules and indexes to the live project
