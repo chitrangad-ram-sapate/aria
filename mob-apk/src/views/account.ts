@@ -25,7 +25,7 @@ export function render(root: HTMLElement) {
     h('section', { class: 'card' },
       h('div', { class: 'row between' }, h('div', {}, h('p', { class: 'eyebrow' }, isDriver ? 'Driver' : 'Admin'), h('strong', {}, me.name)), icon('user')),
       kv([['Email', me.email], ['Team', state.team?.name ?? '-'], ...(isDriver ? [] : [['Team code', state.team?.joinCode ?? '-'] as [string, string]])]),
-      h('p', { class: 'note' }, isDriver ? 'You see the trips your admin sends you.' : 'You have full control: data, plans, What if, results and your drivers.')),
+      h('p', { class: 'note' }, isDriver ? 'You see the trips your admin sends you.' : 'You have full control: data, plans, Ask ARIA, results and your drivers.')),
     form,
     h('button', { class: 'btn block danger', onclick: async () => { await endTracking(); await logOut(); location.reload(); } }, icon('logout'), 'Sign out'));
 }

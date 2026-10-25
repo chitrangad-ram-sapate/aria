@@ -6,11 +6,11 @@ import { backToTop, changePage, moveIndicator, popIcon, trackDock } from './dock
 import { engine } from './engine';
 import { isNative, onFileOpened } from './native';
 import { track } from './geo';
-import { isStale, network, notify, onFullRender, restoreSaved, state, subscribe } from './state';
+import { isStale, network, notify, onFullRender, onGoTo, restoreSaved, state, subscribe } from './state';
 import { errorBox, h, icon, mount } from './ui';
 import * as account from './views/account';
+import * as ask from './views/ask';
 import * as driver from './views/driver';
-import * as lab from './views/lab';
 import * as login from './views/login';
 import * as plan from './views/plan';
 import * as records from './views/records';
@@ -21,7 +21,7 @@ type View = { title: string; tab: string; icon: string; render: (el: HTMLElement
 // Admin: full control. Driver: only their trips, problem reports and account.
 const ADMIN: Record<string, View> = {
   plan: { title: '', tab: 'Home', icon: 'home', render: plan.render, update: plan.update },
-  lab: { title: 'What if', tab: 'What if', icon: 'zap', render: lab.render, update: lab.update },
+  ask: { title: 'Ask ARIA', tab: 'Ask', icon: 'chat', render: ask.render, update: ask.update },
   results: { title: 'Results', tab: 'Results', icon: 'chart', render: results.render, update: results.update },
   team: { title: 'Team', tab: 'Team', icon: 'users', render: team.render, update: team.update },
   records: { title: 'Plan files', tab: '', icon: 'file', render: records.render },
@@ -115,6 +115,7 @@ function show(t: string, force = false) {
 }
 
 onFullRender(() => { chrome(); views[tab]?.render(main); });
+onGoTo((t) => views[t] && show(t));
 subscribe(() => { chrome(); views[tab]?.update?.(); });
 
 // Tapping the tab already open takes that page back to the top (as on iPhone) instead of doing nothing.
@@ -211,7 +212,7 @@ async function startAdmin() {
   tabs.hidden = false;
   tabs.className = 'tabs';
   mount(right, chip, iconBtn('file', 'Plan files', 'records'));
-  mount(tabs, tabBtn('plan'), tabBtn('lab'), go, tabBtn('results'), tabBtn('team'));
+  mount(tabs, tabBtn('plan'), tabBtn('ask'), go, tabBtn('results'), tabBtn('team'));
   tab = 'plan';
   title.textContent = '';
   const bar = h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'fill' }));

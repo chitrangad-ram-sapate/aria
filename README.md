@@ -43,7 +43,7 @@ All data enters through **one CSV file** (products, depots, towns, routes, stock
   <tr>
     <td align="center"><img src="docs/screenshots/admin-6-scan-check.png" width="200"><br><sub><b>Scan a label</b>: every field checked against the data</sub></td>
     <td align="center"><img src="docs/screenshots/admin-7-scan-compare.png" width="200"><br><sub><b>Plan again</b>: the new plan against the old one</sub></td>
-    <td align="center"><img src="docs/screenshots/admin-8-whatif.png" width="200"><br><sub><b>What if</b>: scenarios compared with today</sub></td>
+    <td align="center"><img src="docs/screenshots/admin-8-whatif.png" width="200"><br><sub><b>Ask ARIA</b>: a what-if question answered</sub></td>
     <td align="center"><img src="docs/screenshots/admin-9-results.png" width="200"><br><sub><b>Results</b>: key numbers and charts</sub></td>
   </tr>
 </table>

@@ -30,6 +30,16 @@ export const MAP_TILES = {
   maxZoom: num(env.VITE_MAP_TILES_MAX_ZOOM, 19),
 };
 
+/** Ask ARIA's language model (Groq, OpenAI-style API). It only reads questions and words answers; every number comes
+ *  from the engine on the phone. No key, no connection or an error: the chat reads questions with src/assistant.ts. */
+export const AI = {
+  key: env.VITE_GROQ_API_KEY || '',
+  url: env.VITE_GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions',
+  model: env.VITE_GROQ_MODEL || 'openai/gpt-oss-120b',
+  fallback: env.VITE_GROQ_FALLBACK_MODEL || 'openai/gpt-oss-20b', // used when the main model is busy (rate limit)
+  timeoutMs: num(env.VITE_GROQ_TIMEOUT_MS, 12000),
+};
+
 /** Team join codes: easy to read out loud (no 0/O, 1/I/L). */
 export const TEAM_CODE = { length: 6, chars: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' };
 

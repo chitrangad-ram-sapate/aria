@@ -11,10 +11,10 @@ on Firebase Hosting. The Python engine runs on the device in Pyodide inside a We
 | `engine/data/` | Bundled scenarios, networks, `params.yaml`, `replay_*.json` |
 | `engine/bridge.py` | Glue the worker calls (plus impact and excess figures from engine functions) |
 | `engine/dataset_csv.py` | The data CSV (one file, several tables) to and from a scenario, with line-numbered errors: see `docs/csv-format.md` |
-| `engine/analysis.py` | Dashboard figures for a plan, and What-if scenarios built from model inputs |
+| `engine/analysis.py` | Dashboard figures for a plan, and the scenarios Ask ARIA builds from model inputs |
 | `engine/device_forecast.py` | On-device forecast for the CSV's sales table: scikit-learn quantile boosting with split-conformal calibration, or empirical quantiles (labelled fallback) |
 | `engine/tests/` | The engine's pure tests (`ARIA_SOLVER=scipy`) |
-| `engine/app_tests/` | Tests of the data CSV, dashboard and What-if code |
+| `engine/app_tests/` | Tests of the data CSV, dashboard and scenario code |
 | `scripts/prepare.mjs` | Copies the Pyodide runtime + wheels into `public/pyodide/` and zips `engine/` into `public/aria-bundle.zip` |
 | `scripts/sync-engine.mjs` | `npm run sync-engine`: refreshes `engine/` from `../aria`, `../data`, `../tests` when they exist |
 | `scripts/make-icons.py` | Builds every app icon and splash screen from `assets/logo-source.png` (`python scripts/make-icons.py`) |
@@ -26,14 +26,14 @@ Views:
 - **Home:** load your data CSV (or a sample), plan, network diagram, shortages, pick lists, editable stock with Save, `.svcr`.
 - **GeoProof deliveries:** drivers start a trip and open each town; Delivered unlocks only when the phone's location is at the shop, then the shop's delivery code and the admin's confirmation complete it. Admins follow every stop under Team → Deliveries, with a map. See `docs/geoproof.md`.
 - **Scan labels (Home):** scan a product or lot label (QR or barcode) with the camera or type its code; ARIA checks it, asks for anything missing, refuses what cannot be right, then updates the stock, plans again and shows the new plan against the old one.
-- **What if:** scenarios compared with the baseline, plus a step sweep.
+- **Ask ARIA:** a chat. Questions in plain words ("what if demand rises 20% in Pune and the longest route closes?") become scenarios, planned again on the phone and compared with tonight. Follow-ups ("also...", "what about 30%?"), ranges step by step, "which is best?", tonight's shortages, and how-to answers for the app. Online, an AI model (Groq) reads each question, in English, Hindi or Marathi, and explains the result in two sentences. The app checks every name and amount it returns against the data, and the planner on the phone works out every number. Offline, without a key, or if the AI fails, the chat reads questions with its own word rules. The key goes in `.env.local` as `VITE_GROQ_API_KEY` (see `.env.example`); it is built into the app, so use a key with a spending limit.
 - **Results:** dashboard with KPIs, network, charts, scenario comparison and, for samples, the historical replay.
 - **Files:** open `.svcr` plan files.
 
 All data enters through one CSV file (`docs/csv-format.md`).
 
 **Accounts and roles** (Firebase Auth + Firestore, free Spark plan; `src/cloud.ts`, `firestore.rules`):
-- **Admin** creates a team, gets a 6-letter team code and has full control: data, planning, What if, Results, plan files and the **Team** screen. The Team screen shows every driver (active or paused, last seen), sends tonight's trips (one per depot), tracks deliveries and lists drivers' problem reports.
+- **Admin** creates a team, gets a 6-letter team code and has full control: data, planning, Ask ARIA, Results, plan files and the **Team** screen. The Team screen shows every driver (active or paused, last seen), sends tonight's trips (one per depot), tracks deliveries and lists drivers' problem reports.
 - **Driver** joins with the team code and sees only **My trips** (load, deliver stop by stop, share the pick list), **Plans** (plan files from the admin), **Report a problem** and **Account**. Drivers never load the planner.
 - The admin can send the `.svcr` plan file straight to drivers (Home → Share plan). Drivers open it under **Plans**: the app checks nothing was changed, shows what goes where, and can run the full safety check on their phone.
 - The admin can pause a driver, which locks them out at once. The rules stop anyone from changing their own role, team or paused state, and keep each team's data apart.
@@ -54,11 +54,13 @@ npm run dev          # http://localhost:5173 (first run downloads the Pyodide wh
 ```bash
 npm run build        # dist/  (web bundle, about 44 MB, mostly Pyodide, SciPy and scikit-learn)
 npm run smoke        # headless Chrome at phone size, with the emulators running: admin sign-up, CSV uploads, plan, network,
-                     # Results charts, stock Save, What if, .svcr export, reload; a driver joins, gets, loads and
+                     # Results charts, stock Save, Ask ARIA, .svcr export, reload; a driver joins, gets, loads and
                      # delivers a trip, reports a problem and is paused; sign out and back in
 cd engine && pip install -r requirements.txt && ARIA_SOLVER=scipy python -m pytest tests app_tests -q
 npm run screenshots  # with the emulators running: the README screenshots, admin and driver, into ../docs/screenshots/
 npm run emulators    # local sign-in and database for testing (needs Java 11+); smoke uses them via ?emulators=1
+npm run assistant-test # how Ask ARIA's word rules read 50+ questions, against the names in two samples
+npm run ai-test      # Ask ARIA's AI against the live Groq service (needs the key in .env.local)
 npm run rules-test   # tries what a careless or curious user might: other teams' data, own role, paused access
 npm run deploy:rules # publish firestore.rules and indexes to the live project
 ```

@@ -5,7 +5,12 @@ import { sampleName } from './plain';
 import type { DeliveryStop, LiveFix, PlanFile, Policy, Profile, Report, Trip } from './cloud';
 import type { Json } from './ui';
 
-export type Variant = { id: string; name: string; params: Json };
+export type Variant = { id: string; name: string; params: Json; changes?: Json[] };
+/** One line of the Ask ARIA chat. body draws rich content (cards, charts) from data kept in its closure. */
+export type ChatMsg = { id: number; from: 'me' | 'aria'; text?: string; lines?: string[]; notes?: string[]; busy?: string; error?: string;
+  body?: () => Node; actions?: { label: string; run: () => void }[];
+  memo?: string; // what this answer said, for the language model's view of the conversation
+};
 
 export const state = {
   networks: [] as Json[],
@@ -31,6 +36,8 @@ export const state = {
     error: '',
     sweep: null as null | { param: string; values: number[]; resp: Json; key: string },
     sweepBusy: false,
+    chat: [] as ChatMsg[], // Ask ARIA conversation (this session only)
+    last: null as Json[] | null, // changes of the last scenario asked, for follow-ups ("also...", "what about 30%?")
   },
   me: null as Profile | null, // signed-in user
   team: null as null | { name: string; joinCode: string; geo?: Policy },
@@ -47,6 +54,11 @@ export const state = {
 let fullRender = () => {};
 export const onFullRender = (fn: () => void) => { fullRender = fn; };
 export const rerender = () => fullRender();
+
+let goToFn = (_tab: string) => {};
+export const onGoTo = (fn: (tab: string) => void) => { goToFn = fn; };
+/** Open another page (the chat's buttons use it). */
+export const goTo = (tab: string) => goToFn(tab);
 
 const listeners = new Set<() => void>();
 export const subscribe = (fn: () => void) => listeners.add(fn);

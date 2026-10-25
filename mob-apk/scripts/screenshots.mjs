@@ -74,16 +74,15 @@ try {
   await shot('admin-7-scan-compare');
   await sheet.getByRole('button', { name: 'See the new plan' }).click();
 
-  await tab('What if');
-  for (const p of ['Demand up 20%', 'Depots load 30% less']) {
-    await page.locator('details.add').evaluate((d) => { d.open = true; });
-    await page.getByRole('button', { name: p }).click();
-  }
-  await page.getByRole('button', { name: /^Compare 2 scenarios/ }).click();
-  await page.getByText('Which option does best?').waitFor({ timeout: 300_000 });
-  await page.getByText('Up to date').waitFor({ timeout: 300_000 });
+  await tab('Ask');
+  const box = page.locator('input[aria-label="Ask ARIA"]');
+  await box.fill('What if demand rises 20% in Kolhapur and Shiroli loads 30% less?');
+  await box.press('Enter');
+  await page.locator('.msg.aria .kpi-grid').first().waitFor({ timeout: 300_000 });
+  await page.getByText('Explained by AI from the figures below').waitFor({ timeout: 30_000 }).catch(() => console.log('note: no AI explanation (no key, offline or rate limit)'));
+  await box.blur();
   await settle();
-  await shot('admin-8-whatif', page.getByText('Which option does best?'));
+  await shot('admin-8-whatif', page.locator('.msg.me').first());
 
   await tab('Results');
   await page.getByText('How ARIA did on past weeks').waitFor({ timeout: 60_000 });

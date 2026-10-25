@@ -50,6 +50,7 @@ export function fmt(key: string, v: any): string {
 const ICONS: Record<string, string> = {
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   zap: 'M13 2 4 14h7l-1 8 9-12h-7z',
+  chat: 'M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.3A8.5 8.5 0 1 1 21 11.5zM8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01',
   swap: 'M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14',
   chart: 'M3 3v18h18M7 15l4-4 3 3 5-6',
   file: 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8zM14 3v5h5M9 14l2 2 4-4',

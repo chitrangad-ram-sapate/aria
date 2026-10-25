@@ -162,3 +162,19 @@ def test_vehicle_options_follow_the_shock_rule():
     assert analysis.vehicle_options(sc, "D1", "T2") == []  # already the dearest class
     restricted = analysis.apply(sc, {"restrictions": [["D1", "T1", "6t"]]})
     assert next(r for r in restricted.routes if r.town_id == "T1").vehicle_class == "6t"
+
+
+def test_apply_takes_lists_of_towns_products_and_depots():
+    sc = Scenario.model_validate(load(MINI)["scenario"])
+    out = analysis.apply(sc, {"demand_pct": 100, "demand_town": ["T1", "T2"], "demand_product": ["MILK"]})
+    for a, b in zip(sc.demand, out.demand):
+        k = 2 if a.product_id == "MILK" else 1
+        assert b.quantiles[4] == pytest.approx(a.quantiles[4] * k)
+    one = analysis.apply(sc, {"demand_pct": 100, "demand_town": "T1"})
+    assert all((b.point == pytest.approx(a.point * 2)) == (a.town_id == "T1") for a, b in zip(sc.demand, one.demand) if a.point)
+    lost = analysis.apply(sc, {"stock_loss_pct": 100, "stock_depot": ["D1", "D2"], "stock_product": ["RICE"]})
+    assert all(l.qty_units == 0 for l in lost.lots if l.product_id == "RICE")
+    assert all(l.qty_units == m.qty_units for l, m in zip(lost.lots, sc.lots) if l.product_id != "RICE")
+    shut = analysis.apply(sc, {"capacity_pct": 0, "capacity_depot": ["D2"]})
+    assert next(g for g in shut.godowns if g.godown_id == "D2").dispatch_capacity_units == 0
+    assert next(g for g in shut.godowns if g.godown_id == "D1").dispatch_capacity_units is None
