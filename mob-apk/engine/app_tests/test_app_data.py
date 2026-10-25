@@ -178,3 +178,18 @@ def test_apply_takes_lists_of_towns_products_and_depots():
     shut = analysis.apply(sc, {"capacity_pct": 0, "capacity_depot": ["D2"]})
     assert next(g for g in shut.godowns if g.godown_id == "D2").dispatch_capacity_units == 0
     assert next(g for g in shut.godowns if g.godown_id == "D1").dispatch_capacity_units is None
+
+
+def test_any_line_ending_reads_the_same():
+    """Excel on Windows writes \r\n, phones and older Macs can write a lone \r: each reads like \n."""
+    lf = load(MINI)["scenario"]
+    for eol in ("\r\n", "\r"):
+        r = load(MINI.replace("\n", eol))
+        assert r["ok"], (repr(eol), r["errors"])
+        assert r["scenario"] == lf
+
+
+def test_an_unreadable_file_gets_plain_words():
+    r = dataset_csv.from_csv("# products\nproduct_id,kg\n" + "M" * 200_000 + ",1\n")  # over the csv module's field limit
+    assert not r["ok"]
+    assert "could not be read as a CSV" in r["errors"][0]["message"] and "_csv" not in r["errors"][0]["message"]
