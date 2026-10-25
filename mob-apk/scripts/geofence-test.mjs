@@ -1,6 +1,8 @@
 // Checks the arrival rules in src/geofence.ts: inside/outside the radius, poor accuracy, old and broken readings,
 // missing delivery point, consecutive readings, and that repeats of one reading do not count twice.
 // Usage: node scripts/geofence-test.mjs   (Node 22.6+ reads the TypeScript file directly)
+import { readFileSync } from 'node:fs';
+import { POLICY_LIMITS, SHOP_CODE, today } from '../src/config.ts';
 import { checkArrival, distanceM, rulesDistanceM } from '../src/geofence.ts';
 
 let failed = 0;
@@ -39,6 +41,17 @@ check('trip given to someone else', run({ assigned: false, fixes: [fix(0, 2), fi
 check('trip not started or cancelled', run({ tripActive: false, fixes: [fix(0, 2), fix(0, 1)] }).outcome, 'TRIP_NOT_ACTIVE');
 check('three readings asked for, two given', run({ policy: { ...policy, readings: 3 }, fixes: [fix(5, 8), fix(5, 2)] }).outcome, 'ARRIVAL_CHECKING');
 check('just inside the edge passes', run({ fixes: [fix(95, 8), fix(98, 2)] }).outcome, 'ARRIVAL_VERIFIED');
+
+// the app's limits (src/config.ts) and the database's (firestore.rules) must agree: neither file can import the other
+const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
+for (const [k, [lo, hi]] of Object.entries(POLICY_LIMITS)) {
+  const m = new RegExp(`g\\.${k} is \\w+ && g\\.${k} >= (\\d+) && g\\.${k} <= (\\d+)`).exec(rules);
+  check(`arrival limit ${k} is ${lo}-${hi} in the app and the rules`, m ? `${m[1]}-${m[2]}` : 'missing', `${lo}-${hi}`);
+}
+check('shop code tries match the rules', /request\.resource\.data\.n <= (\d+)/.exec(rules)?.[1], String(SHOP_CODE.maxTries));
+check('shop code digits match the rules', /code\.matches\('\[0-9\]\{(\d+)\}'\)/.exec(rules)?.[1], String(SHOP_CODE.digits));
+// "today" is the phone's date, not UTC: 1 am in India is still the same day there
+check('today() uses local time', today(new Date(2026, 9, 26, 1, 0)), '2026-10-26');
 
 console.log(failed ? `\n${failed} geofence check(s) FAILED` : '\nall geofence checks passed');
 process.exit(failed ? 1 : 0);

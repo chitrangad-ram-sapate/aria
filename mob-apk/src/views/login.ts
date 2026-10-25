@@ -1,5 +1,6 @@
-// Sign in, or create an account: an admin creates a team; a driver joins one with the team's 6-letter code.
+// Sign in, or create an account: an admin creates a team; a driver joins one with the team's code (TEAM_CODE).
 import { errorText, lookupCode, resetPassword, signIn, signUpAdmin, signUpDriver } from '../cloud';
+import { TEAM_CODE } from '../config';
 import { h, icon, mount } from '../ui';
 
 type Mode = 'signin' | 'admin' | 'driver' | 'reset';
@@ -71,9 +72,9 @@ function draw() {
   } else if (mode === 'driver') {
     const team = h('p', { class: 'small', 'aria-live': 'polite' });
     const check = async (input: HTMLInputElement) => {
-      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, TEAM_CODE.length);
       vals.code = input.value;
-      if (input.value.length < 6) return (team.textContent = '');
+      if (input.value.length < TEAM_CODE.length) return (team.textContent = '');
       try {
         const t = await lookupCode(input.value);
         team.textContent = t ? `Team found: ${t.team || 'your team'}` : 'No team with this code. Check it with your admin.';
@@ -82,8 +83,8 @@ function draw() {
     };
     const form: HTMLFormElement = h('form', { class: 'card login-card', onsubmit: (e: Event) => { e.preventDefault(); run(form, () => signUpDriver(val(form, 'name'), val(form, 'email'), val(form, 'password'), val(form, 'code'), val(form, 'phone'), val(form, 'vehicle'))); } },
       h('h2', {}, 'Join your team'),
-      h('p', { class: 'small muted' }, 'Ask your admin for the 6-letter team code. You will see the trips they send you.'),
-      h('label', {}, 'Team code', h('input', { name: 'code', required: true, value: vals.code ?? '', autocapitalize: 'characters', inputMode: 'text', class: 'code-input', maxLength: 6, minLength: 6,
+      h('p', { class: 'small muted' }, `Ask your admin for the ${TEAM_CODE.length}-letter team code. You will see the trips they send you.`),
+      h('label', {}, 'Team code', h('input', { name: 'code', required: true, value: vals.code ?? '', autocapitalize: 'characters', inputMode: 'text', class: 'code-input', maxLength: TEAM_CODE.length, minLength: TEAM_CODE.length,
         oninput: (e: Event) => check(e.target as HTMLInputElement) })),
       team,
       field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name' }),

@@ -5,6 +5,7 @@ import {
   DEFAULT_POLICY, makeCode, OPEN_STATES, reviewStop, setPolicy, setStopPoint, when,
   type DeliveryStop, type LiveFix, type Policy, type Trip,
 } from '../cloud';
+import { LIST, POLICY_LIMITS, SHOP_CODE } from '../config';
 import { distanceM } from '../geofence';
 import { readOnce } from '../geo';
 import { createMap, MAP_NAME, MAP_PROVIDER } from '../map';
@@ -31,7 +32,7 @@ const liveOf = (t: Trip): (LiveFix & { uid: string }) | undefined => (state.live
 
 function rows() {
   const out: { t: Trip; s: DeliveryStop }[] = [];
-  for (const t of state.trips.slice(0, 30)) for (const s of state.stops[t.id] ?? []) out.push({ t, s });
+  for (const t of state.trips.slice(0, LIST.trips)) for (const s of state.stops[t.id] ?? []) out.push({ t, s });
   return out;
 }
 
@@ -55,7 +56,7 @@ export function deliveriesCard(redraw: () => void) {
         select(depots, depotFilter, (v) => { depotFilter = v; redraw(); }, 'Filter by depot')),
       quiet.length > 0 && h('div', { class: 'alert warn' }, h('strong', {}, 'No recent location'),
         h('p', { class: 'small' }, quiet.map((t) => { const l = liveOf(t); return `${t.driverName} (${l ? `last ${ago(l.fix_at)}` : 'none yet'})`; }).join(', '))),
-      shown.length ? h('ul', { class: 'rows' }, shown.slice(0, 60).map(({ t, s }) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => stopSheet(t, s),
+      shown.length ? h('ul', { class: 'rows' }, shown.slice(0, LIST.deliveries).map(({ t, s }) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => stopSheet(t, s),
         onkeydown: (e: KeyboardEvent) => { if (e.key === 'Enter') stopSheet(t, s); } },
         h('div', { class: 'row-main' }, h('strong', {}, `${s.town} · ${t.driverName}`),
           h('span', {}, `From ${t.depot} · ${t.day}${s.lat == null ? ' · no delivery point' : ''}${s.state === 'submitted' ? ` · received by ${s.claim?.name ?? ''}` : ''}`)),
@@ -66,16 +67,17 @@ export function deliveriesCard(redraw: () => void) {
 
 function policyCard() {
   const p: Policy = { ...DEFAULT_POLICY, ...state.team?.geo };
-  const field = (k: keyof Policy, label: string, min: number, max: number) => h('label', { class: 'field' }, h('span', {}, label),
-    h('input', { type: 'number', inputMode: 'numeric', min, max, value: String(p[k]), 'aria-label': label, oninput: (e: Event) => { p[k] = Number((e.target as HTMLInputElement).value); } }));
+  const field = (k: keyof Policy, label: string) => h('label', { class: 'field' }, h('span', {}, label),
+    h('input', { type: 'number', inputMode: 'numeric', min: POLICY_LIMITS[k][0], max: POLICY_LIMITS[k][1], value: String(p[k]), 'aria-label': label, oninput: (e: Event) => { p[k] = Number((e.target as HTMLInputElement).value); } }));
+  const range = (k: keyof Policy) => `${POLICY_LIMITS[k][0]}-${POLICY_LIMITS[k][1]}`;
   return h('details', { class: 'card' }, h('summary', {}, 'Arrival rules'),
     h('p', { class: 'small muted' }, 'When the driver\'s phone may unlock Delivered. They apply to trips sent from now on.'),
-    h('div', { class: 'grid2' }, field('radius_m', 'Distance from the shop (m)', 20, 1000), field('max_accuracy_m', 'Location accurate to (m)', 5, 200)),
-    h('div', { class: 'grid2' }, field('max_age_s', 'Location newer than (s)', 5, 300), field('readings', 'Readings in a row', 1, 5)),
+    h('div', { class: 'grid2' }, field('radius_m', 'Distance from the shop (m)'), field('max_accuracy_m', 'Location accurate to (m)')),
+    h('div', { class: 'grid2' }, field('max_age_s', 'Location newer than (s)'), field('readings', 'Readings in a row')),
     h('button', { class: 'btn block', onclick: async () => {
-      const ok = p.radius_m >= 20 && p.radius_m <= 1000 && p.max_accuracy_m >= 5 && p.max_accuracy_m <= 200 && p.max_age_s >= 5 && p.max_age_s <= 300
-        && Number.isInteger(p.readings) && p.readings >= 1 && p.readings <= 5;
-      if (!ok) return toast('Use: distance 20-1000 m, accuracy 5-200 m, newer than 5-300 s, 1-5 readings.');
+      const ok = (Object.keys(POLICY_LIMITS) as (keyof Policy)[]).every((k) => Number.isFinite(p[k]) && p[k] >= POLICY_LIMITS[k][0] && p[k] <= POLICY_LIMITS[k][1])
+        && Number.isInteger(p.readings);
+      if (!ok) return toast(`Use: distance ${range('radius_m')} m, accuracy ${range('max_accuracy_m')} m, newer than ${range('max_age_s')} s, ${range('readings')} readings.`);
       try { await setPolicy(state.me!.orgId, p); toast('Arrival rules saved'); } catch { toast('Could not save. Check the internet connection.'); }
     } }, 'Save arrival rules'),
     h('p', { class: 'note' }, 'A 100 m circle and 50 m accuracy show the driver was near the shop, not at its door. Location comes from the driver\'s phone and can be faked with special apps, so you confirm each delivery.'));
@@ -125,7 +127,7 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
       h('p', { class: 'small' }, `${metres(s.arrival.dist_m)} from the point, accurate to ${Math.round(s.arrival.acc_m)} m, ${s.arrival.readings} readings, at ${new Date(s.arrival.fix_at).toLocaleTimeString()}.`),
       h('p', { class: 'small muted' }, 'The database checked these numbers are inside the circle and recent. The position itself comes from the phone.')),
     s.claim && h('div', { class: 'alert ok' }, h('strong', {}, `Received by ${s.claim.name}`),
-      h('p', { class: 'small' }, `The shop's delivery code matched (checked by the database, try ${s.claim.n} of 5).`)),
+      h('p', { class: 'small' }, `The shop's delivery code matched (checked by the database, try ${s.claim.n} of ${SHOP_CODE.maxTries}).`)),
     s.failReason && h('div', { class: 'alert bad' }, h('strong', {}, 'Driver could not deliver'), h('p', { class: 'small' }, s.failReason)),
     s.review?.reason && h('p', { class: 'note' }, `${STATE_TEXT[s.state][0]}: ${s.review.reason}`),
     s.state === 'submitted' && [h('h3', {}, 'Confirm this delivery?'), reason,
@@ -140,7 +142,7 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
         b.disabled = true;
         try {
           const code = await makeCode(me.orgId, cur(), me);
-          const text = `ARIA delivery code for ${s.town}: ${code}. Give it to the driver (${t.driverName}) only when the stock is handed over. Valid for 24 hours.`;
+          const text = `ARIA delivery code for ${s.town}: ${code}. Give it to the driver (${t.driverName}) only when the stock is handed over. Valid for ${SHOP_CODE.validHours} hours.`;
           mount(codeBox, h('div', { class: 'alert ok' }, h('p', { class: 'small' }, 'Send this to the shop now. It is shown only once.'), h('strong', { class: 'join-code' }, code),
             h('button', { class: 'btn block', onclick: async () => { if ((await shareText('Delivery code', text)) === 'copied') toast('Copied'); } }, 'Send to the shop')));
           b.remove();

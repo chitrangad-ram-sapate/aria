@@ -1,6 +1,7 @@
 // Home: what to ship tonight. Scenario picker, readiness, one orange "Plan tonight" action, then a summary card
 // (units to ship, verified chip, freight, fill rate), action tiles, the statement's three goals against the usual
 // method, shipments by depot, shortages in plain words, extra stock, forecasts and technical details.
+import { CSV_MAX_MB, LIST, today } from '../config';
 import { engine } from '../engine';
 import { SVCR_MIME, shareFile } from '../native';
 import { forecastLabel, isStale, loadCsvText, loadSample, nextRid, notify, persist, rerender, scheduleValidate, state } from '../state';
@@ -93,7 +94,7 @@ async function uploadCsv(input: HTMLInputElement) {
   const f = input.files?.[0];
   input.value = '';
   if (!f) return;
-  if (f.size > 20 * 1024 * 1024) { state.dataErrors = [{ section: '', line: null, message: 'The file is larger than 20 MB.' }]; return rerender(); }
+  if (f.size > CSV_MAX_MB * 1024 * 1024) { state.dataErrors = [{ section: '', line: null, message: `The file is larger than ${CSV_MAX_MB} MB.` }]; return rerender(); }
   const ok = await loadCsvText(await f.text(), f.name, 'csv');
   if (ok) toast(`Loaded ${f.name}`);
 }
@@ -203,8 +204,8 @@ function issues(report: Json) {
   return [
     errs.length > 0 && h('div', { class: 'alert bad', role: 'alert' },
       h('strong', {}, errs.length === 1 ? 'One thing in your data needs fixing before planning:' : `${errs.length} things in your data need fixing before planning:`),
-      h('ul', { class: 'plain-list' }, errs.slice(0, 30).map((e: Json) => h('li', {}, issueText(e, sc)))),
-      errs.length > 30 && h('p', { class: 'small' }, `…and ${errs.length - 30} more.`),
+      h('ul', { class: 'plain-list' }, errs.slice(0, LIST.dataErrors).map((e: Json) => h('li', {}, issueText(e, sc)))),
+      errs.length > LIST.dataErrors && h('p', { class: 'small' }, `…and ${errs.length - LIST.dataErrors} more.`),
       h('p', { class: 'small' }, 'Correct them in your spreadsheet and upload it again, or use Edit depot stock.')),
     warns.length > 0 && h('details', {}, h('summary', { class: 'small' }, 'Good to know about your data'),
       noteGroups(warns).map((g) => h('details', { class: 'small' }, h('summary', {}, g.title),
@@ -399,7 +400,7 @@ function shareSheet(p: Json, resp: Json) {
       const bytes = await lockPlan(await engine.exportSvcr(p.plan_id), me!.orgId);
       const depots = new Set((p.allocations as Json[]).map((a) => a.godown_id));
       await sendPlanFile(me!.orgId, drivers.filter((d) => picked.has(d.uid)).map((d) => ({ uid: d.uid, name: d.name })), svcrName(p, resp), bytes,
-        { dataset: state.scenarioId, day: state.scenario?.day || new Date().toISOString().slice(0, 10), units: (p.allocations as Json[]).reduce((n, a) => n + a.units, 0), depots: depots.size });
+        { dataset: state.scenarioId, day: state.scenario?.day || today(), units: (p.allocations as Json[]).reduce((n, a) => n + a.units, 0), depots: depots.size });
       toast(`Plan file sent to ${picked.size} driver${picked.size > 1 ? 's' : ''}`);
       (document.querySelector('dialog.sheet') as HTMLDialogElement | null)?.close();
     } catch (e) {

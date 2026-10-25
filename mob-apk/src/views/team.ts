@@ -1,6 +1,7 @@
 // Admin's Team screen: the team code to share, every driver (active or paused, last seen, tonight's progress),
 // sending tonight's plan to drivers (one trip per depot), all trips with delivery progress, and driver reports.
 import { cancelTrip, DEFAULT_POLICY, deletePlanFile, deleteTrip, reassignTrip, sendTrips, setDriverActive, when, type PlanFile, type Profile, type Stop, type Trip } from '../cloud';
+import { LIST, today } from '../config';
 import { deliveriesCard, tripBadge, tripProgress } from './deliveries';
 import { shareText } from '../native';
 import { isStale, state } from '../state';
@@ -56,7 +57,7 @@ function tripsFromPlan(plan: Json, planKey: string): Omit<Trip, 'id' | 'driverUi
       towns.set(a.town_id, s);
     }
     const stops = [...towns.values()].sort((x, y) => y.units - x.units);
-    return { depot_id: g, depot: godownName(g), day: state.scenario?.day || new Date().toISOString().slice(0, 10), dataset: state.scenarioId, planKey,
+    return { depot_id: g, depot: godownName(g), day: state.scenario?.day || today(), dataset: state.scenarioId, planKey,
       units: stops.reduce((n, s) => n + s.units, 0), stops, status: 'assigned' as const };
   });
 }
@@ -150,7 +151,7 @@ function driverSheet(d: Profile) {
 
 // ---------- trips and reports ----------
 function tripsCard() {
-  const ts = state.trips.slice(0, 30);
+  const ts = state.trips.slice(0, LIST.trips);
   return [h('div', { class: 'section-head' }, h('h2', {}, 'Trips sent', h('span', { class: 'count' }, num(state.trips.length)))),
     ts.length ? h('ul', { class: 'rows' }, ts.map((t) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => tripSheet(t) },
       h('div', { class: 'row-main' }, h('strong', {}, `${t.driverName} · from ${t.depot}`), h('span', {}, `${t.day} · ${num(t.units)} units · ${progress(t)}`)),
@@ -195,7 +196,7 @@ function tripSheet(t: Trip) {
 }
 
 function filesCard() {
-  const fs = state.files.slice(0, 30);
+  const fs = state.files.slice(0, LIST.files);
   return [h('div', { class: 'section-head' }, h('h2', {}, 'Plan files sent', h('span', { class: 'count' }, num(state.files.length)))),
     fs.length ? h('ul', { class: 'rows' }, fs.map((f) => h('li', { class: 'tap', tabIndex: 0, role: 'button', onclick: () => fileSheet(f) },
       h('div', { class: 'row-main' }, h('strong', {}, `${f.driverName} · ${f.dataset || f.name}`), h('span', {}, `${f.day} · ${num(f.units)} units · sent ${when(f.createdAt)}`)),
@@ -214,7 +215,7 @@ function fileSheet(f: PlanFile) {
 }
 
 function reportsCard() {
-  const rs = state.reports.slice(0, 30);
+  const rs = state.reports.slice(0, LIST.reports);
   return [h('div', { class: 'section-head' }, h('h2', {}, 'Problems reported by drivers', h('span', { class: 'count' }, num(state.reports.length)))),
     rs.length ? h('ul', { class: 'rows' }, rs.map((r) => h('li', {},
       h('div', { class: 'row-main' }, h('strong', {}, `${r.driverName}: ${r.kind}`), h('span', {}, r.note || 'No details given')),

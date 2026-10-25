@@ -13,7 +13,7 @@ service cloud.firestore {
       return p.lat is number && p.lon is number && p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180
         && !(p.lat == 0 && p.lon == 0) && p.acc_m is number && p.acc_m >= 0 && p.fix_at is int;
     }
-    // Arrival rules an admin may set: radius 20-1000 m, accuracy 5-200 m, age 5-300 s, 1-5 readings.
+    // Arrival rules an admin may set (same limits as POLICY_LIMITS in src/config.ts): radius 20-1000 m, accuracy 5-200 m, age 5-300 s, 1-5 readings.
     function validPolicy(g) {
       return g.keys().hasOnly(['radius_m', 'max_accuracy_m', 'max_age_s', 'readings'])
         && g.radius_m is number && g.radius_m >= 20 && g.radius_m <= 1000
