@@ -54,9 +54,9 @@ export async function showPlanFile(root: HTMLElement, name: string, bytes: Uint8
   const check = h('li', { class: 'pending' }, h('span', { class: 'muted' }, 'Safety rules not checked on this phone yet'));
   const runCheck = h('button', { class: 'btn block', onclick: async () => {
     runCheck.disabled = true;
-    mount(check, h('span', { class: 'muted' }, 'Getting the planner ready... (first time takes a few seconds)'));
+    mount(check, h('span', { class: 'muted' }, 'Loading the planner... (the first time takes a few seconds)'));
     try {
-      await engine.boot((pct) => { mount(check, h('span', { class: 'muted' }, `Getting the planner ready... ${pct}%`)); });
+      await engine.boot((pct) => { mount(check, h('span', { class: 'muted' }, `Loading the planner... ${pct}%`)); });
       const v = await engine.openSvcr(plain);
       check.className = v.ok ? '' : 'failed';
       mount(check, v.ok ? h('span', { class: 'ok-text' }, 'All 8 safety rules pass, and the plan matches the data inside the file')
