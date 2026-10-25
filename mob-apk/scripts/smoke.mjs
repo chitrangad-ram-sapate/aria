@@ -114,7 +114,7 @@ try {
   }, name);
   await page.waitForTimeout(600);
   expect(await pillUnder('Home'), 'pill not under Home');
-  for (const t of ['What if', 'Results', 'Team', 'Home', 'Results', 'What if', 'Home']) await page.locator('nav.tabs button.tab', { hasText: t }).click();
+  for (const t of ['Ask', 'Results', 'Team', 'Home', 'Results', 'Ask', 'Home']) await page.locator('nav.tabs button.tab', { hasText: t }).click();
   await page.waitForTimeout(700);
   expect(await pillUnder('Home'), 'pill not under Home after quick switching');
   expect(await page.locator('.page-ghost').count() === 0, 'leaving page left behind after quick switching');
@@ -208,33 +208,49 @@ try {
   step(`sample kolhapur_normal_week loaded through the CSV reader and planned in ${msS} ms`);
   await shot('05-home-sample');
 
-  await tab('What if');
-  for (const p of ['Demand up 20%', 'Depots load 30% less', 'Longest route closed']) {
-    await page.locator('details.add').evaluate((d) => { d.open = true; });
-    await page.getByRole('button', { name: p }).click();
-  }
-  // a truck restriction on a medium-truck route of the selected scenario
-  const routeSel = page.locator('select[aria-label="Route change"]');
-  await routeSel.selectOption('restrict');
-  await page.locator('select[aria-label="Largest truck allowed"]').or(page.getByText('This route already uses the smallest truck')).first().waitFor();
-  const opts = await page.locator('select[aria-label="Largest truck allowed"]').count();
-  const smallest = await page.getByText('This route already uses the smallest truck').count();
-  expect(opts + smallest === 1, 'restriction neither offered options nor explained why not');
-  if (opts) await page.getByRole('button', { name: 'Add route change' }).click();
-  await page.getByRole('button', { name: /^Compare 3 scenarios/ }).click();
-  await page.getByText('Which option does best?').waitFor({ timeout: 300_000 });
-  await page.getByText('Up to date').waitFor({ timeout: 300_000 });
-  const cards = await page.locator('section.card .kpi-grid').count();
-  expect(cards === 3, `expected 3 scenario cards, got ${cards}`);
-  await page.getByText('Change from today (%)').waitFor();
-  step(`What-if: 3 scenarios compared with the baseline (${opts ? 'truck restriction added' : 'restriction explained as impossible'}), cards and charts shown`);
+  await tab('Ask');
+  const box = page.locator('input[aria-label="Ask ARIA"]');
+  const ask = async (q) => { await box.fill(q); await box.press('Enter'); };
+  const answers = page.locator('.msg.aria .kpi-grid');
+  const answered = async (n) => { await answers.nth(n - 1).waitFor({ timeout: 300_000 }); expect(!(await page.locator('.msg.aria .typing').count()), 'still planning after the answer'); };
+  await ask('What if demand goes up 20%?');
+  await answered(1);
+  expect(await page.locator('.msg.aria ul.said').first().textContent() === 'Demand up 20% everywhere', 'question read wrongly');
+  await ask('Depots load 30% less');
+  await answered(2);
+  await ask('also close the longest route');
+  await answered(3);
+  await page.getByText('Added to the last one').waitFor();
+  await ask('what about 40%?');
+  await answered(4);
+  expect((await page.locator('.msg.aria ul.said').last().textContent()).includes('70%') === false, 'number follow-up kept the old number');
+  await ask('only small trucks to Kolhapur');
+  await answers.nth(4).or(page.getByText('so that limit changes nothing')).first().waitFor({ timeout: 300_000 });
+  step('Ask ARIA: 5 questions read and planned (a follow-up with "also", a new number, a truck limit), each with cards');
+  await ask('Which option is best?');
+  await page.getByText('Which does best?').waitFor({ timeout: 300_000 });
+  await page.locator('.msg.aria').last().getByText('Change from tonight (%)').waitFor();
+  await ask('Which towns are short tonight?');
+  await page.locator('.msg.aria h3', { hasText: /short|Shortages/ }).first().waitFor({ timeout: 300_000 });
+  await ask('How do I send trips?');
+  await page.locator('.msg.aria').getByRole('button', { name: 'Open Team' }).waitFor();
+  await ask('the weather is nice');
+  await page.getByText('Sorry, I did not get that.').waitFor();
+  step('Ask ARIA: comparison of all scenarios, shortages tonight, a how-to answer with a button, and an unknown question');
   await shot('06-whatif');
 
-  await page.locator('input[aria-label="Steps (2-12)"]').fill('4');
-  await page.locator('input[aria-label="Steps (2-12)"]').dispatchEvent('change');
-  await page.getByRole('button', { name: 'Run steps' }).click();
+  const typed = 'half typed question';
+  await box.fill(typed);
+  await ask('demand from -20% to 40% in 4 steps');
   await page.getByText('Units shipped and short').waitFor({ timeout: 300_000 });
-  step('step sweep: 4 demand steps planned, 4 line charts drawn');
+  await box.fill(typed);
+  await tab('Results');
+  await tab('Ask');
+  expect(await box.inputValue() === typed, 'typed question lost when switching pages');
+  await box.fill('');
+  await ask('undo');
+  await page.getByText(/^Removed "/).waitFor();
+  step('step sweep: 4 demand steps planned, 4 line charts drawn; typed text kept across pages; undo');
 
   await tab('Results');
   await page.getByText('Scenarios against today').waitFor();

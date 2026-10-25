@@ -617,3 +617,21 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
     - driver: N stops left, Tracking, All done;
   - a rail along the bottom edge in the chip's colour, which shimmers while planning or tracking. At 360 px or narrower the chip shows only its dot.
 **Tests:** the arrival test has 7 new checks. A QA run at 320, 360, 390 and 430 px found no sideways scrolling, cut-off titles or overflowing header on any admin or driver page, and every chip transition was right. A new check for buttons that touch found two pairs on Home ("Upload your data" / "Get a template", "Plan tonight" / "Scan labels"), now fixed. The end-to-end test and all other suites pass.
+
+### D-049 · What if becomes Ask ARIA, a chat that runs on the phone · Accepted
+**Context:** the What if page asked people to build scenarios with sliders, drop-downs and a route form. It worked, but a planner thinks in sentences ("what if Pune needs 30% more and the Shiroli road is shut?"), and the controls took a lot of scrolling on a phone.
+**Decision:**
+- The What if tab is replaced by **Ask ARIA** (`src/views/ask.ts`), a chat with a question box held above the dock and suggestions built from the loaded data's own town and depot names.
+- **Reading questions** (`src/assistant.ts`) uses word rules and the names in the data, not an AI model:
+  - no internet, no API key in a public app, no paid service on the Spark plan, and no business data leaves the phone;
+  - the answers stay exact: every number still comes from `engine.compare`;
+  - one question can hold several changes ("..., and ..."). Names a town and a depot share ("Kagal") are read by the topic and the other names given. Diesel counts as freight; a festival without a number adds 30% and says so; an amount that is missing is asked for, never guessed.
+- **What it answers:**
+  - what-ifs on demand, capacity, freight, stock lost, margin, closed roads and truck limits;
+  - follow-ups: "also..." adds to the last scenario, "what about 30%?" changes its number, "Kolhapur instead" moves it;
+  - ranges step by step, "which is best?", tonight's shortages or freight, undo and start over;
+  - how-to answers for loading data, planning, safety checks, trips, drivers, deliveries, plan files and working offline, each with a button to the page.
+- Each scenario answer gives the change in one sentence, four measures against tonight, the towns that change most, and charts and every measure on request. Truck limits that change nothing are dropped with a reason.
+- Scenarios asked in the chat are kept in `state.lab`, so Results still shows the comparison and the step-by-step trends.
+- `analysis.apply` now takes a list of towns, products or depots as well as one id or `*`, so "Kolhapur and Jaysingpur" is one change.
+**Tests:** `npm run assistant-test` has 55 checks on two samples. The end-to-end test asks 10 questions: a follow-up, a new number, a truck limit, a comparison, shortages, a how-to answer, an unknown question, a range, undo, and typed text kept across pages. The engine tests include a new test for lists. All suites pass.

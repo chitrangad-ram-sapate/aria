@@ -16,6 +16,7 @@
     "emulators": "npx -y firebase-tools@13 emulators:start --only auth,firestore --project demo-aria",
     "rules-test": "node scripts/rules-test.mjs",
     "geofence-test": "node --no-warnings scripts/geofence-test.mjs",
+    "assistant-test": "node --no-warnings scripts/assistant-test.mjs",
     "deploy:rules": "npx -y firebase-tools@13 deploy --only firestore --project aria-triwiz"
   },
   "dependencies": {

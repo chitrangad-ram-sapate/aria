@@ -8,7 +8,7 @@ import { engine } from '../engine';
 import { KPIS, kpi } from '../kpis';
 import { isStale, state } from '../state';
 import { Json, badge, errorBox, h, icon, mount, num, rupees, segmented, table } from '../ui';
-import { comparisonCharts, sweepCharts } from './lab';
+import { comparisonCharts, sweepCharts } from './ask';
 import { networkDiagram, truck } from './network';
 import { planTonight, townName } from './plan';
 
@@ -54,7 +54,7 @@ export function update() {
         stale ? badge('Out of date', 'bad') : k.verified ? badge('Verified', 'ok') : badge('Not verified', 'bad')),
       resp.aria && segmented([['aria', 'ARIA plan'], ['baseline_a', 'Usual method']], which, (v) => { which = v as any; update(); }, 'Plan shown'),
       h('ul', { class: 'legend-kinds small' },
-        h('li', {}, badge('Data', ''), ' from your CSV'), h('li', {}, badge('Calculated', 'ok'), ' by the planner'), h('li', {}, badge('Forecast', 'warn'), ' from What if')),
+        h('li', {}, badge('Data', ''), ' from your CSV'), h('li', {}, badge('Calculated', 'ok'), ' by the planner'), h('li', {}, badge('Forecast', 'warn'), ' from Ask ARIA')),
       stale && h('p', { class: 'note' }, 'Inputs changed after planning. Plan again to refresh every chart.')),
     h('div', { class: 'section-head' }, h('h2', {}, 'Key numbers'), badge('Calculated', 'ok')),
     h('div', { class: 'kpi-grid' },
@@ -120,11 +120,11 @@ function whatIfCard() {
   const res = state.lab.result, sw = state.lab.sweep;
   if (!res && !sw) {
     return h('section', { class: 'card' }, h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios'), badge('Forecast', 'warn')),
-      h('p', { class: 'note' }, 'Build scenarios in What if (demand up, less capacity, a closed route...) and their comparison and step-by-step trends appear here too.'));
+      h('p', { class: 'note' }, 'Ask ARIA a "what if" question (demand up, less capacity, a closed road...) and the comparison and step-by-step trends appear here too.'));
   }
   return h('section', { class: 'card' },
     h('div', { class: 'section-head' }, h('h2', {}, 'Scenarios against today'), badge('Forecast', 'warn')),
-    res && res.resp.scenario_hash !== state.report?.scenario_hash && h('p', { class: 'note' }, 'Made before your data changed. Compare again in What if.'),
+    res && res.resp.scenario_hash !== state.report?.scenario_hash && h('p', { class: 'note' }, 'Made before your data changed. Ask ARIA again.'),
     res && comparisonCharts(res.resp),
     sw && [h('h3', {}, 'Step by step'), sweepCharts(sw)]);
 }
