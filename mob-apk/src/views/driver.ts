@@ -1,7 +1,7 @@
 // Driver screens: My trips (load, deliver stop by stop, share the pick list) and Report a problem.
 // Drivers see only trips their admin sent them; they cannot change data or plans.
 import { errorText, loadPlanFile, markOpened, sendReport, when, type PlanFile, type Trip } from '../cloud';
-import { LIST } from '../config';
+import { LIST, PLAN_FILE_MAX_MB, TOO_BIG } from '../config';
 import { closeStop, drawStop, isOpen, openStop, startTrip, stopLine, syncTracking } from './deliver';
 import { shareFile } from '../native';
 import { state } from '../state';
@@ -84,7 +84,7 @@ function drawReport() {
   const me = state.me!;
   const trips = state.trips.filter((t) => !finished(t));
   const focused = document.activeElement?.getAttribute('aria-label') === 'Details';
-  const note = h('textarea', { rows: 4, placeholder: 'What happened? Where?', 'aria-label': 'Details', value: details, oninput: () => { details = note.value; } });
+  const note = h('textarea', { rows: 4, maxLength: 1000, placeholder: 'What happened? Where?', 'aria-label': 'Details', value: details, oninput: () => { details = note.value; } });
   if (focused) queueMicrotask(() => { note.focus(); note.setSelectionRange(details.length, details.length); });
   const mine = state.reports.slice(0, LIST.driverReports);
   mount(reportRoot!,
@@ -136,7 +136,8 @@ function drawFiles() {
   const input = h('input', { type: 'file', accept: '.svcr,application/vnd.aria.svcr+json', class: 'visually-hidden', id: 'svcr-local',
     onchange: async (e: Event) => {
       const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) openLocalFile(filesRoot!, f.name, new Uint8Array(await f.arrayBuffer()));
+      if (f && f.size > PLAN_FILE_MAX_MB * 1024 * 1024) toast(TOO_BIG);
+      else if (f) openLocalFile(filesRoot!, f.name, new Uint8Array(await f.arrayBuffer()));
     } });
   mount(filesRoot!,
     h('section', { class: 'card' }, h('p', { class: 'eyebrow' }, 'Plan files'),

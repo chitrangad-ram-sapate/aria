@@ -41,5 +41,8 @@
     "pyodide": "0.27.8",
     "typescript": "5.9.3",
     "vite": "6.4.5"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.13.6"
   }
 }

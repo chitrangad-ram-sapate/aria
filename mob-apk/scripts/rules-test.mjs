@@ -22,8 +22,9 @@ async function person(label) {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
   const db = getFirestore(app);
   connectFirestoreEmulator(db, 'localhost', 8080);
-  const { user } = await createUserWithEmailAndPassword(auth, `${label}-${run}@example.com`, 'secret123');
-  return { uid: user.uid, db };
+  const email = `${label}-${run}@example.com`;
+  const { user } = await createUserWithEmailAndPassword(auth, email, 'secret123');
+  return { uid: user.uid, db, email };
 }
 
 async function admin(label, code) {
@@ -32,14 +33,14 @@ async function admin(label, code) {
   const b = writeBatch(p.db);
   b.set(org, { name: label, ownerUid: p.uid, joinCode: code, createdAt: serverTimestamp() });
   b.set(doc(p.db, 'joinCodes', code), { orgId: org.id, ownerUid: p.uid, team: label });
-  b.set(doc(p.db, 'users', p.uid), { name: label, email: 'x', role: 'admin', orgId: org.id, active: true });
+  b.set(doc(p.db, 'users', p.uid), { name: label, email: p.email, role: 'admin', orgId: org.id, active: true });
   await b.commit();
   return { ...p, orgId: org.id, role: 'admin' };
 }
 
 async function driver(label, code, orgId) {
   const p = await person(label);
-  await setDoc(doc(p.db, 'users', p.uid), { name: label, email: 'x', role: 'driver', orgId, joinCode: code, active: true });
+  await setDoc(doc(p.db, 'users', p.uid), { name: label, email: p.email, role: 'driver', orgId, joinCode: code, active: true });
   return { ...p, orgId, role: 'driver' };
 }
 
@@ -78,13 +79,27 @@ await denied('driver deletes a trip', () => deleteDoc(doc(d1.db, 'orgs', a1.orgI
 await denied('driver makes themself admin', () => updateDoc(doc(d1.db, 'users', d1.uid), { role: 'admin' }));
 await denied('driver moves to another team', () => updateDoc(doc(d1.db, 'users', d1.uid), { orgId: a2.orgId }));
 await allowed('driver updates their phone and vehicle', () => updateDoc(doc(d1.db, 'users', d1.uid), { phone: '1', vehicle: 'V' }));
+// what people type about themselves: text of a sane length (a name is shown on the admin's screens and map)
+await denied('driver sets a 200-character name', () => updateDoc(doc(d1.db, 'users', d1.uid), { name: 'x'.repeat(200) }));
+await denied('driver sets an empty name', () => updateDoc(doc(d1.db, 'users', d1.uid), { name: '' }));
+await denied('driver sets a name that is not text', () => updateDoc(doc(d1.db, 'users', d1.uid), { name: { html: '<img src=x>' } }));
+await denied('driver sets a 100-character vehicle number', () => updateDoc(doc(d1.db, 'users', d1.uid), { vehicle: 'V'.repeat(100) }));
+await denied('signing up with an email that is not the account\'s', async () => {
+  const p = await person('intruder3');
+  await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: 'someone-else@example.com', role: 'driver', orgId: a1.orgId, joinCode: c1, active: true });
+});
+await denied('signing up as driver with a 500-character name', async () => {
+  const p = await person('intruder4');
+  await setDoc(doc(p.db, 'users', p.uid), { name: 'n'.repeat(500), email: p.email, role: 'driver', orgId: a1.orgId, joinCode: c1, active: true });
+});
+await denied('admin renames the team to 300 characters', () => updateDoc(doc(a1.db, 'orgs', a1.orgId), { name: 't'.repeat(300) }));
 await denied('signing up as driver with a made-up team', async () => {
   const p = await person('intruder');
-  await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: 'x', role: 'driver', orgId: a1.orgId, joinCode: 'NOPE00', active: true });
+  await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: p.email, role: 'driver', orgId: a1.orgId, joinCode: 'NOPE00', active: true });
 });
 await denied('signing up as admin of someone else\'s team', async () => {
   const p = await person('intruder2');
-  await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: 'x', role: 'admin', orgId: a1.orgId, active: true });
+  await setDoc(doc(p.db, 'users', p.uid), { name: 'x', email: p.email, role: 'admin', orgId: a1.orgId, active: true });
 });
 let fileId = '';
 const fileMeta = { driverUid: d1.uid, driverName: 'driver1', name: 'p.svcr', dataset: 'x', day: 'd', units: 1, depots: 1, size: 3, parts: 1, createdAt: serverTimestamp() };
@@ -263,9 +278,13 @@ await denied('paused driver hands in a delivery step', () => step(d1, T, 1, { st
 await denied('paused driver shares location', () => setDoc(doc(d1.db, 'orgs', a1.orgId, 'trips', T.id, 'live', d1.uid), { lat: KOL.lat, lon: KOL.lon, acc_m: 5, fix_at: Date.now(), stop: '1', at: serverTimestamp() }));
 await denied('admin sends a trip to a paused driver', () => newTrip(d1, [KOL]));
 await denied('paused driver reads the team key', () => getDoc(keyRef(d1.db, a1.orgId)));
-await denied('paused driver sends a report', () => addDoc(collection(d1.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
-await allowed('active driver sends a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d2.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
-await denied('driver sends a report in someone else\'s name', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'x', tripId: null, kind: 'k', note: '' }));
+await denied('paused driver sends a report', () => addDoc(collection(d1.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'driver1', tripId: null, kind: 'k', note: '', createdAt: serverTimestamp() }));
+await allowed('active driver sends a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d2.uid, driverName: 'driver2', tripId: null, kind: 'Road closed', note: 'Bridge', createdAt: serverTimestamp() }));
+await denied('driver sends a report in someone else\'s name', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { driverUid: d1.uid, driverName: 'driver1', tripId: null, kind: 'k', note: '', createdAt: serverTimestamp() }));
+await denied('driver signs a report with another driver\'s name', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { ...{ driverUid: d2.uid, driverName: 'driver2', tripId: null, kind: 'Road closed', note: 'Bridge', createdAt: serverTimestamp() }, driverName: 'driver1' }));
+await denied('driver sends a 5,000-character report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { ...{ driverUid: d2.uid, driverName: 'driver2', tripId: null, kind: 'Road closed', note: 'Bridge', createdAt: serverTimestamp() }, note: 'x'.repeat(5000) }));
+await denied('driver adds extra fields to a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { ...{ driverUid: d2.uid, driverName: 'driver2', tripId: null, kind: 'Road closed', note: 'Bridge', createdAt: serverTimestamp() }, status: 'resolved' }));
+await denied('driver back-dates a report', () => addDoc(collection(d2.db, 'orgs', a1.orgId, 'reports'), { ...{ driverUid: d2.uid, driverName: 'driver2', tripId: null, kind: 'Road closed', note: 'Bridge', createdAt: serverTimestamp() }, createdAt: Timestamp.fromMillis(0) }));
 await denied('admin of another team reads the team', () => getDoc(doc(a2.db, 'orgs', a1.orgId)));
 await denied('admin changes the team code by hand', () => updateDoc(doc(a1.db, 'orgs', a1.orgId), { joinCode: 'ZZZZZZ' }));
 

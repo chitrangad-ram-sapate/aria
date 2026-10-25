@@ -17,9 +17,9 @@ export function render(root: HTMLElement) {
     try { await updateMyDetails(me.uid, patch); toast('Saved'); } catch { toast('Could not save. Check the internet connection.'); }
   } },
     h('h2', {}, 'Your details'),
-    h('label', {}, 'Name', h('input', { name: 'name', value: me.name, required: true, autocomplete: 'name' })),
-    isDriver && h('label', {}, 'Phone number', h('input', { name: 'phone', type: 'tel', value: me.phone ?? '', autocomplete: 'tel' })),
-    isDriver && h('label', {}, 'Vehicle number', h('input', { name: 'vehicle', value: me.vehicle ?? '' })),
+    h('label', {}, 'Name', h('input', { name: 'name', value: me.name, required: true, autocomplete: 'name', maxLength: 60 })),
+    isDriver && h('label', {}, 'Phone number', h('input', { name: 'phone', type: 'tel', value: me.phone ?? '', autocomplete: 'tel', maxLength: 20 })),
+    isDriver && h('label', {}, 'Vehicle number', h('input', { name: 'vehicle', value: me.vehicle ?? '', maxLength: 20 })),
     h('button', { type: 'submit', class: 'btn block' }, 'Save details'));
   mount(root,
     h('section', { class: 'card' },

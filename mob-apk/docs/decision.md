@@ -655,3 +655,29 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - `npm run ai-test`: 11 checks against the live service (Hindi, Marathi, a follow-up, a product group, a made-up town refused, a range, shortages, a how-to answer, an off-topic question, and an explanation that uses only the figures given).
 - The smoke test blocks Groq (so the word rules are tested) and fakes it for one Hindi question, one answer with a page button and one broken reply.
 - All suites pass.
+
+### D-051 · Security review: the fixes · Accepted
+**Context:** a security review of the app, the Firestore rules, the Android build and the Groq connection (2026-10-25).
+**Found and fixed:**
+- **Stored XSS through the delivery map (high).** Leaflet reads a string tooltip as HTML. The admin's map showed the driver's name and the driver's map showed town names, so a driver signing up as `<img src=x onerror=...>` could run code on the admin's phone (session, team key). `src/map.ts` now passes tooltips as text only. Every other screen already builds text nodes.
+- **What people type was not checked by the rules (medium).**
+  - A profile name must be 1–60 characters and phone and vehicle at most 20; the profile's email must be the account's own.
+  - Team names must be 1–60 characters.
+  - A problem report may hold only its six fields, must carry the sender's own name (no reports in another driver's name), a kind of at most 40 characters, a note of at most 1,000, and the server's time.
+  - The forms stop at the same lengths, so nobody meets a refusal.
+- **No Content Security Policy (medium).** `index.html` now allows only the app's own scripts (and the planner's WebAssembly), with data going only to Firebase, Groq, the map tiles and, locally, the emulators.
+- **Android backups (low).** `allowBackup` is off, so the session and the cached team key are not copied into phone backups.
+- **Plan files of any size (low).** Files over 25 MB (`PLAN_FILE_MAX_MB`) are refused before they are read into memory.
+- **npm audit: 4 high in @grpc/grpc-js (low).** It is used only by the Node tests, not in the app bundle. Pinned to 1.14.6 through `overrides`; the audit is now clean.
+**Checked and fine:**
+- no secrets in the repo or its history (the Groq key lives only in the git-ignored `.env.local`);
+- the Firebase web key is public by design;
+- nobody can change their own role, team or paused state;
+- plan files stay inside their team (`npm run team-test`);
+- AI replies are checked before use and shown as text;
+- the app logs nothing.
+**Accepted:**
+- The Groq key is inside the APK (D-050): use a spending limit.
+- The team key is kept on the phone so locked files open offline (D-043).
+- Debug APKs allow WebView debugging: share release builds outside the team.
+**Tests:** the rules test grew from 126 to 137 checks, all passing. The smoke and team tests pass with the CSP, and `npm audit` is clean.

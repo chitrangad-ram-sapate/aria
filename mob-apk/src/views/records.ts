@@ -1,6 +1,6 @@
 // Records: open .svcr files (file picker, "open with", share-to-app), re-verify them on the device,
 // and show the pick list per godown. Recently opened records are remembered in localStorage.
-import { LIST } from '../config';
+import { LIST, PLAN_FILE_MAX_MB, TOO_BIG } from '../config';
 import { engine } from '../engine';
 import { LockedError, unlockPlan } from '../seal';
 import { state } from '../state';
@@ -49,7 +49,7 @@ function draw() {
   const input = h('input', { type: 'file', accept: '.svcr,application/vnd.aria.svcr+json', class: 'visually-hidden', id: 'svcr-file',
     onchange: async (e: Event) => {
       const f = (e.target as HTMLInputElement).files?.[0];
-      if (f) await openRecord(f.name, new Uint8Array(await f.arrayBuffer()));
+      if (f) await openRecord(f.name, f.size > PLAN_FILE_MAX_MB * 1024 * 1024 ? null : new Uint8Array(await f.arrayBuffer()), TOO_BIG);
     } });
   const list = recent();
   mount(root,
