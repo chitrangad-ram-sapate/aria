@@ -216,15 +216,15 @@ async function startAdmin() {
   tab = 'plan';
   title.textContent = '';
   const bar = h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'fill' }));
-  const text = h('p', { class: 'muted', 'aria-live': 'polite' }, 'Getting the planner ready...');
-  mount(main, h('section', { class: 'card loading' }, h('img', { class: 'boot-logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: '' }), h('h2', {}, 'Getting ready'),
-    h('p', { class: 'muted small' }, 'ARIA plans on this phone, so it works without internet. The first start takes a few seconds.'), bar, text));
+  const text = h('p', { class: 'muted', 'aria-live': 'polite' }, 'Loading the planner...');
+  mount(main, h('section', { class: 'card loading' }, h('img', { class: 'boot-logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: '' }), h('h2', {}, 'Starting ARIA'),
+    h('p', { class: 'muted small' }, "Setting up tonight's planner. The first start takes a few seconds."), bar, text));
   const t0 = performance.now();
   try {
     await engine.boot((pct) => {
       (bar.firstChild as HTMLElement).style.width = `${pct}%`;
       bar.setAttribute('aria-valuenow', String(pct));
-      text.textContent = `Getting the planner ready... ${pct}%`;
+      text.textContent = `Loading the planner... ${pct}%`;
     });
     (window as any).__ariaBootMs = Math.round(performance.now() - t0);
     [state.networks, state.scenarios] = await Promise.all([engine.listNetworks(), engine.listScenarios()]);
