@@ -1,5 +1,6 @@
 // Reading product and lot labels. Three kinds are understood:
-//  - ARIA labels (QR): "ARIA1|product=MILK_1L|lot=L-0042|qty=240|exp=2026-10-29|depot=D_HADAPSAR", or the same keys as JSON;
+//  - ARIA labels (QR): a link "aria://label?product=MILK_1L&lot=L-0042&qty=240&exp=2026-10-29&depot=D_HADAPSAR" (a phone
+//    camera opens ARIA with it), "ARIA1|product=...|lot=..." (older labels), or the same keys as JSON;
 //  - GS1 barcodes on retail packs: (01) product number, (10) lot, (17)/(15) expiry YYMMDD, (37)/(30) count;
 //  - a plain code: a product number (8 to 14 digits), a product id, or a lot number.
 // Nothing here checks the values against the dataset; scan.ts does that.
@@ -82,7 +83,9 @@ export function parseLabel(input: string): Label {
   };
 
   let pairs: [string, string][] | null = null;
-  if (raw.startsWith('{')) {
+  const link = /^[a-z][a-z0-9+.-]*:\/\/[^?#]*\?([^#]*)/i.exec(raw);
+  if (link) pairs = [...new URLSearchParams(link[1])];
+  else if (raw.startsWith('{')) {
     try { pairs = Object.entries(JSON.parse(raw)).map(([k, v]) => [k, String(v ?? '')]); } catch { pairs = null; }
   } else if (raw.includes('=')) {
     pairs = raw.split(/[|;&\n]/).map((p) => p.split('=')).filter((p) => p.length >= 2).map(([k, ...v]) => [k, v.join('=')]);

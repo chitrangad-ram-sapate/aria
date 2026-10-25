@@ -46,6 +46,13 @@
                 <data android:pathPattern=".*\\..*\\.svcr" />
                 <data android:pathPattern=".*\\..*\\..*\\.svcr" />
             </intent-filter>
+            <!-- stock label links (aria://label?product=...): the phone camera or Google Lens opens ARIA at the label's check -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="aria" android:host="label" />
+            </intent-filter>
             <!-- "share to ARIA" -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

@@ -338,6 +338,19 @@ try {
   await page.getByText('Data looks good').waitFor({ timeout: 60_000 });
   step('reload keeps the admin signed in and restores the last dataset');
 
+  // 9b. a label link (what the phone camera opens ARIA with; ?label= in the web build): the scan sheet opens at its check
+  const link = 'aria://label?product=FOODS_3_007&lot=LINK-0001&qty=40&exp=2016-04-06&depot=G_SHIROLI';
+  await page.goto(`${url}&label=${encodeURIComponent(link)}`);
+  const lsheet = page.locator('dialog.sheet');
+  await lsheet.getByText('Check the details').waitFor({ timeout: 240_000 });
+  const filled = { product: await lsheet.locator('select[aria-label="Product"]').inputValue(), depot: await lsheet.locator('select[aria-label="Depot"]').inputValue(),
+    expiry: await lsheet.locator('input[aria-label="Expiry date"]').inputValue(), lot: await lsheet.locator('input[aria-label="Lot number"]').inputValue(), qty: await lsheet.locator('input[aria-label="Units"]').inputValue() };
+  expect(filled.product === 'FOODS_3_007' && filled.depot === 'G_SHIROLI' && filled.expiry === '2016-04-06' && filled.lot === 'LINK-0001' && filled.qty === '40', `label link not filled in: ${JSON.stringify(filled)}`);
+  expect(await lsheet.getByRole('button', { name: 'Add to the list' }).isEnabled(), 'a complete label link cannot be added');
+  await lsheet.getByRole('button', { name: 'Cancel' }).click();
+  await page.keyboard.press('Escape');
+  step('a label link opens ARIA at Scan stock labels with product, depot, lot, units and expiry filled in');
+
   // 10. team: a driver joins with the code
   await plan();
   await tab('Team');

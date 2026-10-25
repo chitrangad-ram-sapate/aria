@@ -681,3 +681,16 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - The team key is kept on the phone so locked files open offline (D-043).
 - Debug APKs allow WebView debugging: share release builds outside the team.
 **Tests:** the rules test grew from 126 to 137 checks, all passing. The smoke and team tests pass with the CSP, and `npm audit` is clean.
+
+### D-052 · Stock labels are links that open ARIA · Accepted
+**Context:** the demo QR labels held plain text (`ARIA1|product=...`). The in-app scanner read them, but a phone camera or Google Lens only showed the text, so nothing reached ARIA.
+**Decision:**
+- Labels are links: `aria://label?product=MILK_1L&lot=PUN-MILK-1101&qty=600&exp=2026-10-29&depot=D_HADAPSAR`, with the same keys as before (`gtin` for a product number).
+- Android opens ARIA for `aria://label` (an intent filter in `AndroidManifest.xml`). The admin's phone goes to Home and opens "Scan stock labels" at that label's check, with everything it carries filled in and checked as before.
+- A link that arrives while the planner is starting, or before sign-in, waits until the app is ready. On a driver's phone ARIA says labels are for the admin.
+- The web build takes `?label=<link>`, which is how the end-to-end test opens one.
+- The in-app scanner reads links, the older `ARIA1|...` labels, JSON and GS1 barcodes alike.
+- `scripts/make-labels.py` makes the 8 demo labels for the Pune demo data: large PNGs with the title printed under the code, and a `labels.html` sheet. It writes to `demo-data/labels`; the old labels were moved to `demo-data/labels/old-text-labels`.
+**Tests:**
+- All 8 new labels decode (zxing) and read back with every field.
+- The smoke test opens a label link and finds product, depot, lot, units and expiry filled in and ready to add; the existing scan checks still pass.

@@ -228,7 +228,7 @@ function drawStatus() {
     h('button', { class: 'btn primary block', disabled: !valid || state.planBusy, onclick: planTonight },
       state.planBusy ? 'Planning on this phone...' : ['Plan tonight', icon('arrow')]),
     h('div', { class: 'grid2' },
-      h('button', { class: 'btn', onclick: scanSheet }, icon('scan'), 'Scan labels'),
+      h('button', { class: 'btn', onclick: () => scanSheet() }, icon('scan'), 'Scan labels'),
       h('button', { class: 'btn', onclick: stockSheet }, icon('edit'), 'Edit stock')),
     state.planError && errorBox(state.planError));
 }

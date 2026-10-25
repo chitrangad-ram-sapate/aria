@@ -112,13 +112,14 @@ function check(d: Draft) {
   return { errors, info, item };
 }
 
-export function scanSheet() {
+/** Open the scan sheet; with a code (a label link the phone camera opened ARIA with), go straight to its check. */
+export function scanSheet(code?: string) {
   if (!state.scenario) return toast('Load your data first.');
   if (phase !== 'busy') { phase = 'scan'; result = null; problems = []; draft = null; }
   if (itemsData !== state.scenarioId) { items = []; itemsData = state.scenarioId; lastDepot = ''; }
   body = h('div', { class: 'scan' });
   openSheet('Scan stock labels', body);
-  draw();
+  if (code) useCode(code); else draw();
 }
 
 const STEPS = ['Scan', 'Check', 'Plan again'];
