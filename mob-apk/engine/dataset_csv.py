@@ -106,7 +106,9 @@ def to_csv(sc: dict) -> str:
 
 def _split(text: str) -> dict[str, tuple[int, list[str], list[tuple[int, list[str]]]]]:
     """-> {section: (header line no, header, [(line no, row)])}."""
-    rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
+    # lines may end in \r\n (Windows, Excel), \n or a lone \r (older Mac files, some phone apps and transfers)
+    text = text.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
+    rows = list(csv.reader(io.StringIO(text)))
     out: dict = {}
     cur = None
     for i, r in enumerate(rows, start=1):
@@ -220,6 +222,8 @@ def from_csv(text: str, base: dict | None = None, use_ml: bool = True) -> dict:
         parts = _split(text)
     except CsvError as e:
         return {"ok": False, "errors": [{"section": "", "line": None, "message": str(e)}]}
+    except csv.Error:  # the csv module's own words are for developers
+        return {"ok": False, "errors": [{"section": "", "line": None, "message": "the file could not be read as a CSV. Save it from your spreadsheet as \"CSV (comma delimited)\" and upload it again"}]}
     if not parts:
         return {"ok": False, "errors": [{"section": "", "line": None, "message": "the file is empty"}]}
     recs = {name: _parse(name, hl or 0, header, data, errors) for name, (hl, header, data) in parts.items()}
