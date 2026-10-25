@@ -1,5 +1,6 @@
 // Records: open .svcr files (file picker, "open with", share-to-app), re-verify them on the device,
 // and show the pick list per godown. Recently opened records are remembered in localStorage.
+import { LIST } from '../config';
 import { engine } from '../engine';
 import { LockedError, unlockPlan } from '../seal';
 import { state } from '../state';
@@ -17,7 +18,7 @@ function recent(): Json[] {
 
 function remember(entry: Json) {
   try {
-    const list = [entry, ...recent().filter((r) => !(r.name === entry.name && r.scenario_hash === entry.scenario_hash))].slice(0, 20);
+    const list = [entry, ...recent().filter((r) => !(r.name === entry.name && r.scenario_hash === entry.scenario_hash))].slice(0, LIST.recentFiles);
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch { /* storage blocked or full: the list is a convenience only */ }
 }

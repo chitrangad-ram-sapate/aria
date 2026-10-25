@@ -10,16 +10,16 @@ import {
   addDoc, Bytes, collection, connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocs, initializeFirestore, onSnapshot, orderBy, persistentLocalCache,
   query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
-import { FIREBASE_CONFIG } from './firebase-config';
+import { EMULATORS, FIREBASE_CONFIG, SHOP_CODE, TEAM_CODE } from './config';
 
 // Local test runs (npm run smoke) talk to the Firebase emulators, never to the live project.
-const emulators = location.hostname === 'localhost' && new URLSearchParams(location.search).has('emulators');
-const app = initializeApp(emulators ? { ...FIREBASE_CONFIG, projectId: 'demo-aria', apiKey: 'demo-key' } : FIREBASE_CONFIG);
+const emulators = location.hostname === EMULATORS.host && new URLSearchParams(location.search).has('emulators');
+const app = initializeApp(emulators ? { ...FIREBASE_CONFIG, projectId: EMULATORS.projectId, apiKey: 'demo-key' } : FIREBASE_CONFIG);
 const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
 const db = initializeFirestore(app, emulators ? {} : { localCache: persistentLocalCache() });
 if (emulators) {
-  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, 'localhost', 8080);
+  connectAuthEmulator(auth, `http://${EMULATORS.host}:${EMULATORS.authPort}`, { disableWarnings: true });
+  connectFirestoreEmulator(db, EMULATORS.host, EMULATORS.firestorePort);
 }
 
 export type Role = 'admin' | 'driver';
@@ -32,8 +32,7 @@ export type PlanFile = { id: string; driverUid: string; driverName: string; name
 export type Report = { id: string; driverUid: string; driverName: string; tripId: string | null; kind: string; note: string; createdAt?: any };
 
 // ---------- sign in / sign up ----------
-const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L: easy to read out loud
-const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
+const newCode = () => Array.from(crypto.getRandomValues(new Uint8Array(TEAM_CODE.length)), (b) => TEAM_CODE.chars[b % TEAM_CODE.chars.length]).join('');
 
 export async function signUpAdmin(name: string, email: string, password: string, teamName: string) {
   const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
@@ -51,7 +50,7 @@ export async function signUpAdmin(name: string, email: string, password: string,
 /** Team name for a join code, checked before the driver's account is created. */
 export async function lookupCode(code: string): Promise<{ orgId: string; team: string } | null> {
   const c = code.trim().toUpperCase();
-  if (!/^[A-Z0-9]{6}$/.test(c)) return null;
+  if (c.length !== TEAM_CODE.length || !/^[A-Z0-9]+$/.test(c)) return null;
   const snap = await getDoc(doc(db, 'joinCodes', c));
   if (!snap.exists()) return null;
   return { orgId: snap.data().orgId, team: snap.data().team ?? '' };
@@ -92,7 +91,7 @@ export function watchProfile(cb: (p: Profile | null, user: User | null) => void)
 /** Plain words for Firebase errors. */
 export function errorText(e: any): string {
   const code = String(e?.code ?? e?.message ?? '');
-  if (code.includes('code-not-found')) return 'That team code was not found. Ask your admin for the 6-letter code.';
+  if (code.includes('code-not-found')) return 'That team code was not found. Ask your admin for the team code.';
   if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) return 'Wrong email or password.';
   if (code.includes('email-already-in-use')) return 'An account with this email already exists. Sign in instead.';
   if (code.includes('weak-password')) return 'Use a password of at least 6 characters.';
@@ -213,20 +212,20 @@ export const watchLive = (orgId: string, tripId: string, cb: (fs: (LiveFix & { u
 
 const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
 
-/** Admin: a new 6-digit recipient code for a stop, valid 24 hours. Only its salted hash is stored; the code is returned once. */
+/** Admin: a new recipient code for a stop (SHOP_CODE: digits, hours valid). Only its salted hash is stored; the code is returned once. */
 export async function makeCode(orgId: string, s: DeliveryStop, me: Profile): Promise<string> {
-  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0');
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10 ** SHOP_CODE.digits).padStart(SHOP_CODE.digits, '0');
   const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
   const hash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${code}`)));
   const gen = s.codeGen + 1;
   // one batch: a code saved without its step would block that number for good (codes can only be created)
   await stepStop(orgId, s, { codeGen: gen }, 'code', me, undefined, (b) =>
-    b.set(doc(stopRef(orgId, s), 'code', String(gen)), { hash, salt, expiresAt: Timestamp.fromMillis(Date.now() + 24 * 3600_000), createdAt: serverTimestamp() }));
+    b.set(doc(stopRef(orgId, s), 'code', String(gen)), { hash, salt, expiresAt: Timestamp.fromMillis(Date.now() + SHOP_CODE.validHours * 3600_000), createdAt: serverTimestamp() }));
   return code;
 }
 
 /**
- * Driver: hand in the recipient's code and name. Each try is recorded first (at most 5 per code), then the stop moves
+ * Driver: hand in the recipient's code and name. Each try is recorded first (at most SHOP_CODE.maxTries per code), then the stop moves
  * to "submitted" only if the database rules find the code matches. → 'ok' | 'wrong' | 'no-tries' | 'no-code'.
  */
 export async function submitProof(orgId: string, s: DeliveryStop, code: string, name: string, me: Profile): Promise<'ok' | 'wrong' | 'no-tries' | 'no-code'> {
@@ -234,7 +233,7 @@ export async function submitProof(orgId: string, s: DeliveryStop, code: string, 
   const key = `aria.try.${s.tripId}.${s.id}.${s.codeGen}`;
   let n = 1;
   try { n = Math.max(1, Number(localStorage.getItem(key) || '1')); } catch { /* start at 1 */ }
-  for (; n <= 5; n++) {
+  for (; n <= SHOP_CODE.maxTries; n++) {
     try {
       await setDoc(doc(stopRef(orgId, s), 'tries', `${s.codeGen}_${n}`), { gen: s.codeGen, n, code, by: me.uid, at: serverTimestamp() });
       break;
@@ -243,12 +242,12 @@ export async function submitProof(orgId: string, s: DeliveryStop, code: string, 
     }
   }
   try { localStorage.setItem(key, String(n + 1)); } catch { /* counted on the server anyway */ }
-  if (n > 5) return 'no-tries';
+  if (n > SHOP_CODE.maxTries) return 'no-tries';
   try {
     await stepStop(orgId, s, { state: 'submitted', claim: { name, gen: s.codeGen, n } }, 'proof', me);
     return 'ok';
   } catch (e: any) {
-    if (String(e?.code).includes('permission-denied')) return n >= 5 ? 'no-tries' : 'wrong';
+    if (String(e?.code).includes('permission-denied')) return n >= SHOP_CODE.maxTries ? 'no-tries' : 'wrong';
     throw e;
   }
 }

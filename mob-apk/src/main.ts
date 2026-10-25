@@ -1,10 +1,12 @@
 import './style.css';
 import { watchDrivers, watchFiles, watchLive, watchProfile, watchReports, watchStops, watchTeam, watchTrips, logOut, type Profile, type Trip } from './cloud';
+import { LIST } from './config';
 import { endTracking } from './views/deliver';
 import { backToTop, changePage, moveIndicator, popIcon, trackDock } from './dock';
 import { engine } from './engine';
 import { isNative, onFileOpened } from './native';
-import { network, notify, onFullRender, restoreSaved, state, subscribe } from './state';
+import { track } from './geo';
+import { isStale, network, notify, onFullRender, restoreSaved, state, subscribe } from './state';
 import { errorBox, h, icon, mount } from './ui';
 import * as account from './views/account';
 import * as driver from './views/driver';
@@ -18,7 +20,7 @@ import * as team from './views/team';
 type View = { title: string; tab: string; icon: string; render: (el: HTMLElement) => void; update?: () => void };
 // Admin: full control. Driver: only their trips, problem reports and account.
 const ADMIN: Record<string, View> = {
-  plan: { title: "Tonight's plan", tab: 'Home', icon: 'home', render: plan.render, update: plan.update },
+  plan: { title: 'Tonight', tab: 'Home', icon: 'home', render: plan.render, update: plan.update },
   lab: { title: 'What if', tab: 'What if', icon: 'zap', render: lab.render, update: lab.update },
   results: { title: 'Results', tab: 'Results', icon: 'chart', render: results.render, update: results.update },
   team: { title: 'Team', tab: 'Team', icon: 'users', render: team.render, update: team.update },
@@ -36,24 +38,59 @@ let views: Record<string, View> = {};
 let tab = '';
 const app = document.getElementById('app')!;
 const main = h('main', { id: 'main', tabIndex: -1 });
+// Header: who is signed in (initials, to Account), a greeting over the page title, and a live status chip with a
+// matching rail along the bottom edge that says where tonight's work stands; tapping the chip goes there.
 const title = h('h1', {}, 'ARIA');
-const sub = h('span', { class: 'sub' }, '');
-const left = h('div', {});
-const right = h('div', {});
+const greet = h('span', { class: 'greet' }, '');
+const avatar = h('button', { class: 'avatar', 'aria-label': 'Account', onclick: () => show('account') }, '');
+const chipText = h('span', {}, '');
+const chip = h('button', { class: 'status-chip', onclick: () => show(state.me?.role === 'admin' ? 'plan' : 'trips') }, h('span', { class: 'dot' }), chipText);
+const right = h('div', { class: 'head-right' }, chip);
 const tabs = h('nav', { class: 'tabs', 'aria-label': 'Main' });
 const go = h('button', { class: 'go', 'aria-label': 'Plan tonight', onclick: () => { show('plan'); plan.planTonight(); } }, icon('swap'));
-const header = h('header', { class: 'top' }, left, h('div', {}, title, sub), right);
+const header = h('header', { class: 'top' }, avatar, h('div', { class: 'head-text' }, greet, title), right);
 mount(app, header, main, tabs);
 trackDock(tabs);
+
+type Tone = 'idle' | 'busy' | 'ok' | 'warn' | 'bad' | 'live';
+/** Where tonight's work stands, in two words, and its colour. */
+function status(): [string, Tone] {
+  if (state.me?.role === 'admin') {
+    if (!state.scenario) return ['No data', 'idle'];
+    if (state.planBusy) return ['Planning', 'busy'];
+    if (state.validating) return ['Checking', 'busy'];
+    if (!state.report?.valid) return ['Fix data', 'bad'];
+    const p = state.plan?.resp;
+    if (p && isStale(p)) return ['Plan again', 'warn'];
+    if (p) return (p.recommended === 'aria' ? p.aria : p.baseline_a)?.verifier?.passed ? ['Verified', 'ok'] : ['Not verified', 'bad'];
+    return ['Ready', 'idle'];
+  }
+  const trips = state.trips.filter((t) => t.status === 'assigned' || t.status === 'loaded');
+  const open = trips.flatMap((t) => state.stops[t.id] ?? []).filter((s) => ['assigned', 'in_transit', 'arrived', 'rejected'].includes(s.state));
+  if (track.on) return ['Tracking', 'live'];
+  if (open.length) return [`${open.length} stop${open.length > 1 ? 's' : ''} left`, 'warn'];
+  if (trips.some((t) => !state.stops[t.id])) return [`${trips.length} trip${trips.length > 1 ? 's' : ''}`, 'warn']; // stops still loading
+  return [state.trips.length ? 'All done' : 'No trips', state.trips.length ? 'ok' : 'idle'];
+}
+
+const initials = (name = '') => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+const greeting = () => { const hr = new Date().getHours(); return hr < 5 ? 'Working late' : hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening'; };
 
 function chrome() {
   if (!views[tab]) return;
   title.textContent = views[tab].title;
-  if (state.me?.role === 'admin') {
-    sub.textContent = state.scenario ? (network().name?.replace(/\s*\(.*\)$/, '') || state.scenarioId) : 'No data loaded';
+  const me = state.me;
+  greet.textContent = me ? `${greeting()}, ${me.name.trim().split(/\s+/)[0]}` : '';
+  avatar.textContent = initials(me?.name);
+  const [text, tone] = status();
+  chipText.textContent = text;
+  chip.dataset.tone = tone;
+  header.dataset.tone = tone;
+  chip.setAttribute('aria-label', `Status: ${text}${me?.role === 'admin' && state.scenario ? ` · ${network().name?.replace(/\s*\(.*\)$/, '') || state.scenarioId}` : ''}`);
+  if (me?.role === 'admin') {
     go.disabled = !state.report?.valid || state.validating || state.planBusy;
     go.classList.toggle('busy', state.planBusy);
-  } else sub.textContent = state.team?.name ?? '';
+  }
   for (const b of tabs.querySelectorAll<HTMLButtonElement>('button.tab')) b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false');
 }
 
@@ -137,11 +174,11 @@ watchProfile((p, user) => {
   } else startDriver(p);
 });
 
-// Delivery stops of the latest 30 trips, and (admin) where drivers on the road are. Listeners follow the trip list.
+// Delivery stops of the latest LIST.trips trips, and (admin) where drivers on the road are. Listeners follow the trip list.
 const tripSubs = new Map<string, () => void>();
 function syncTripSubs(p: Profile, ts: Trip[]) {
   const want = new Map<string, () => () => void>();
-  for (const t of ts.slice(0, 30)) {
+  for (const t of ts.slice(0, LIST.trips)) {
     want.set(`s:${t.id}`, () => watchStops(p.orgId, t.id, p.role === 'driver' ? p.uid : null, (ss) => { state.stops[t.id] = ss; notify(); }));
     if (p.role === 'admin' && t.status === 'loaded') want.set(`l:${t.id}`, () => watchLive(p.orgId, t.id, (ls) => { state.live[t.id] = ls; notify(); }));
   }
@@ -160,8 +197,7 @@ function startDriver(_p: Profile) {
   header.hidden = false;
   tabs.hidden = false;
   tabs.className = 'tabs four';
-  mount(left);
-  mount(right);
+  mount(right, chip);
   mount(tabs, tabBtn('trips'), tabBtn('files'), tabBtn('report'), tabBtn('account'));
   show('trips', true);
 }
@@ -171,11 +207,10 @@ async function startAdmin() {
   header.hidden = false;
   tabs.hidden = false;
   tabs.className = 'tabs';
-  mount(left, iconBtn('user', 'Account', 'account'));
-  mount(right, iconBtn('file', 'Plan files', 'records'));
+  mount(right, chip, iconBtn('file', 'Plan files', 'records'));
   mount(tabs, tabBtn('plan'), tabBtn('lab'), go, tabBtn('results'), tabBtn('team'));
   tab = 'plan';
-  title.textContent = "Tonight's plan";
+  title.textContent = 'Tonight';
   const bar = h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'fill' }));
   const text = h('p', { class: 'muted', 'aria-live': 'polite' }, 'Getting the planner ready...');
   mount(main, h('section', { class: 'card loading' }, h('img', { class: 'boot-logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: '' }), h('h2', {}, 'Getting ready'),

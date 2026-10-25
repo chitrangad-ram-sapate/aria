@@ -1,6 +1,7 @@
 // Driver screens: My trips (load, deliver stop by stop, share the pick list) and Report a problem.
 // Drivers see only trips their admin sent them; they cannot change data or plans.
 import { errorText, loadPlanFile, markOpened, sendReport, when, type PlanFile, type Trip } from '../cloud';
+import { LIST } from '../config';
 import { closeStop, drawStop, isOpen, openStop, startTrip, stopLine, syncTracking } from './deliver';
 import { shareFile } from '../native';
 import { state } from '../state';
@@ -85,7 +86,7 @@ function drawReport() {
   const focused = document.activeElement?.getAttribute('aria-label') === 'Details';
   const note = h('textarea', { rows: 4, placeholder: 'What happened? Where?', 'aria-label': 'Details', value: details, oninput: () => { details = note.value; } });
   if (focused) queueMicrotask(() => { note.focus(); note.setSelectionRange(details.length, details.length); });
-  const mine = state.reports.slice(0, 20);
+  const mine = state.reports.slice(0, LIST.driverReports);
   mount(reportRoot!,
     h('section', { class: 'card' },
       h('p', { class: 'eyebrow' }, 'Tell your admin'),

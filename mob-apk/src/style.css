@@ -30,14 +30,49 @@ p { margin: 6px 0; }
 .small { font-size: 0.85rem; }
 .eyebrow { font-size: 0.8rem; color: var(--muted); margin: 0; }
 
-/* Header: centred title, help on the right, back on the left when needed (as in the reference). */
+/* Header: initials (Account), a greeting over a large left-aligned title, and a live status chip. The rail along the
+   bottom edge takes the chip's colour, and shimmers while ARIA is planning or the driver's location is tracked. */
 header.top {
-  position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center;
-  padding: calc(env(safe-area-inset-top) + 6px) 8px 6px; background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  --tone: #9ca3af; --tone-bg: var(--chip);
+  position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 12px; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
 }
-header.top h1 { margin: 0; font-size: 1.05rem; font-weight: 700; text-align: center; }
-header.top .sub { display: block; text-align: center; font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+header.top::after {
+  content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; height: 3px; border-radius: 3px;
+  background: linear-gradient(90deg, var(--tone), color-mix(in srgb, var(--tone) 25%, transparent));
+  transition: background 0.4s ease;
+}
+header.top[data-tone="busy"]::after, header.top[data-tone="live"]::after {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 20%, transparent) 0%, var(--tone) 50%, color-mix(in srgb, var(--tone) 20%, transparent) 100%);
+  background-size: 200% 100%; animation: rail 1.6s linear infinite;
+}
+@keyframes rail { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+header.top[data-tone="ok"], .status-chip[data-tone="ok"] { --tone: var(--ok); --tone-bg: var(--ok-bg); }
+header.top[data-tone="warn"], .status-chip[data-tone="warn"] { --tone: var(--warn); --tone-bg: var(--warn-bg); }
+header.top[data-tone="bad"], .status-chip[data-tone="bad"] { --tone: var(--bad); --tone-bg: var(--bad-bg); }
+header.top[data-tone="busy"], .status-chip[data-tone="busy"] { --tone: var(--brand); --tone-bg: #e0ecff; }
+header.top[data-tone="live"], .status-chip[data-tone="live"] { --tone: var(--ok); --tone-bg: var(--ok-bg); }
+.head-text { min-width: 0; display: flex; flex-direction: column; }
+header.top .greet { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header.top h1 { margin: 0; font-size: 1.35rem; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center;
+  color: #fff; font: inherit; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.02em;
+  background: radial-gradient(120% 120% at 30% 20%, #6cb2ff 0%, #2f6fe8 55%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px -3px rgb(37 99 235 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+.avatar:active { transform: scale(0.94); }
+.head-right { display: flex; align-items: center; gap: 2px; }
+.status-chip {
+  --tone: #9ca3af; --tone-bg: var(--chip);
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--tone) 25%, transparent); background: var(--tone-bg); color: var(--text);
+  font: inherit; font-size: 0.8rem; font-weight: 650; white-space: nowrap; transition: background 0.3s ease, border-color 0.3s ease;
+}
+.status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); flex: none; }
+.status-chip[data-tone="busy"] .dot, .status-chip[data-tone="live"] .dot { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tone) 55%, transparent); } 50% { box-shadow: 0 0 0 5px transparent; } }
 .icon-btn {
   width: 44px; height: 44px; display: inline-grid; place-items: center; border: 0; background: none; color: var(--text);
   border-radius: 999px; cursor: pointer;
@@ -442,3 +477,13 @@ table.compare .badge { white-space: nowrap; }
 .btn.big { min-height: 56px; font-size: 1.02rem; }
 .events { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .alert:not(.ok):not(.bad):not(.warn) { background: var(--soft); }
+
+/* Narrow phones: the status chip keeps only its coloured dot (the rail and the label for screen readers still say it). */
+@media (max-width: 360px) {
+  header.top { gap: 10px; padding-left: 12px; padding-right: 12px; }
+  header.top::after { left: 12px; right: 12px; }
+  header.top h1 { font-size: 1.2rem; }
+  .avatar { width: 40px; height: 40px; font-size: 0.88rem; }
+  .status-chip { padding: 0; width: 34px; justify-content: center; }
+  .status-chip > span:last-child { display: none; }
+}

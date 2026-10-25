@@ -6,10 +6,11 @@ import {
   clearLive, loadEvents, OPEN_STATES, sendLive, stepStop, submitProof, updateTrip, when,
   type DeliveryStop, type StopEvent, type StopState, type Trip,
 } from '../cloud';
+import { SHOP_CODE } from '../config';
 import { checkArrival, distanceM, OUTCOME_TEXT, type Check } from '../geofence';
 import { askPermission, lastFix, permission, readOnce, startTracking, stopTracking, STALE_MS, track } from '../geo';
 import { createMap, MAP_NAME, MAP_PROVIDER, type DeliveryMap } from '../map';
-import { state } from '../state';
+import { notify, state } from '../state';
 import { badge, h, icon, mount, num, openSheet, select, toast } from '../ui';
 
 // ---------- shared words (driver and admin) ----------
@@ -73,6 +74,11 @@ export function syncTracking() {
   return syncing;
 }
 async function syncNow() {
+  const was = track.on;
+  await syncInner();
+  if (track.on !== was) notify(); // the header's status shows when tracking runs
+}
+async function syncInner() {
   const me = state.me;
   const a = me?.role === 'driver' && me.active ? activeStop() : null;
   const perm = a ? await permission() : '';
@@ -293,7 +299,7 @@ const typed = { name: '', code: '', msg: '', bad: false }; // kept across redraw
 function proofForm(_t: Trip, s: DeliveryStop) {
   const me = state.me!;
   const name = h('input', { type: 'text', placeholder: 'Name of the person receiving', 'aria-label': 'Recipient name', autocomplete: 'off', value: typed.name, oninput: () => { typed.name = name.value; } });
-  const code = h('input', { type: 'text', inputMode: 'numeric', maxLength: 6, placeholder: '6-digit code from the shop', 'aria-label': 'Recipient code', autocomplete: 'off', class: 'code-input',
+  const code = h('input', { type: 'text', inputMode: 'numeric', maxLength: SHOP_CODE.digits, placeholder: `${SHOP_CODE.digits}-digit code from the shop`, 'aria-label': 'Recipient code', autocomplete: 'off', class: 'code-input',
     value: typed.code, oninput: () => { typed.code = code.value; } });
   // a live update redraws this form: keep the cursor (and the phone keyboard) in the box being typed in
   const was = document.activeElement?.getAttribute('aria-label');
@@ -304,7 +310,7 @@ function proofForm(_t: Trip, s: DeliveryStop) {
   const send = h('button', { class: 'btn primary block big', disabled: !s.codeGen || s.pending }, 'Submit delivery proof');
   send.onclick = async () => {
     if (name.value.trim().length < 2) return say('Enter the name of the person receiving the stock.');
-    if (!/^\d{6}$/.test(code.value.trim())) return say('The code has 6 digits. Ask the person receiving for it.');
+    if (!new RegExp(`^[0-9]{${SHOP_CODE.digits}}$`).test(code.value.trim())) return say(`The code has ${SHOP_CODE.digits} digits. Ask the person receiving for it.`);
     send.disabled = true;
     send.textContent = 'Sending...';
     try {

@@ -4,6 +4,8 @@
 //   VITE_MAP_PROVIDER=osm (default)                        OpenStreetMap tiles through Leaflet, no key
 //   VITE_MAP_PROVIDER=none                                 no map; the status list still works
 // Only real coordinates are drawn. No road route is drawn: there is no routing service, and a straight line is not a road.
+import { MAP_TILES } from './config';
+
 export type MapStop = { id: string; n: number; label: string; lat: number; lon: number; radius_m: number; done: boolean; current: boolean };
 export type MapDriver = { lat: number; lon: number; acc_m: number; live: boolean; label: string };
 export interface DeliveryMap {
@@ -35,7 +37,7 @@ async function leafletMap(el: HTMLElement, onStop?: (id: string) => void): Promi
   await import('leaflet/dist/leaflet.css');
   // no animations: the page redraws while a reading arrives, and an animation running then breaks Leaflet
   const map = L.map(el, { zoomControl: true, attributionControl: true, zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }).setView([20.6, 78.9], 5);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  L.tileLayer(MAP_TILES.url, { maxZoom: MAP_TILES.maxZoom, attribution: MAP_TILES.attribution }).addTo(map);
   const layer = L.layerGroup().addTo(map);
   let gone = false;
   let stops: MapStop[] = [];

@@ -596,3 +596,24 @@ A sample name saved on the phone by an older version still read "kolhapur_edge_c
 - **Layout:** spacing around lists inside cards and in delivery summaries; a readable placeholder for the delivery code.
 **Checked and fine:** expired stock is warned about and never shipped; negative stock is refused; offline, the driver still sees trips, opens plan files and runs the full safety check.
 **Tests:** 126 rule checks, 21 arrival checks, 145 engine and data tests (6 new), and the end-to-end test all pass.
+
+### D-048 · One config file; a header that shows where tonight's work stands · Accepted
+**Context:**
+- Business limits were copied across screens, messages and `firestore.rules`: 5 code tries, a 24-hour code life, the arrival-rule ranges, 6-character codes, and the latest 30 trips.
+- Environment settings were fixed in code: the Firebase project, emulator ports and map tiles.
+- Trip and plan-file days used `toISOString()`, the UTC date, which is yesterday in India before 5:30 am.
+- The header (a person icon, a centred title over the dataset name, a file icon) said nothing about the state of the night.
+**Decision:**
+- **`src/config.ts`** holds every such value once:
+  - the Firebase config, emulators and map tiles, each overridable in `.env.local` (`.env.example` lists them);
+  - `TEAM_CODE`, `SHOP_CODE`, `POLICY_LIMITS`, `LIST` and `CSV_MAX_MB`;
+  - `today()`, the phone's local date. `firebase-config.ts` is removed.
+- `npm run geofence-test` now fails if the arrival limits, code tries or code digits differ between `config.ts` and `firestore.rules`, and checks that `today()` uses local time.
+- **Header:**
+  - initials (to Account);
+  - a time-of-day greeting over a large left-aligned title (Home is now "Tonight");
+  - a live status chip that opens the page it is about:
+    - admin: No data, Checking, Fix data, Ready, Planning, Verified, Plan again;
+    - driver: N stops left, Tracking, All done;
+  - a rail along the bottom edge in the chip's colour, which shimmers while planning or tracking. At 360 px or narrower the chip shows only its dot.
+**Tests:** the arrival test has 7 new checks. A QA run at 320, 360, 390 and 430 px found no sideways scrolling, cut-off titles or overflowing header on any admin or driver page, and every chip transition was right. The end-to-end test and all other suites pass.
