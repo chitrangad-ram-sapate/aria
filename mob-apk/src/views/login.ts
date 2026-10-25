@@ -63,8 +63,8 @@ function draw() {
     const form: HTMLFormElement = h('form', { class: 'card login-card', onsubmit: (e: Event) => { e.preventDefault(); run(form, () => signUpAdmin(val(form, 'name'), val(form, 'email'), val(form, 'password'), val(form, 'team'))); } },
       h('h2', {}, 'Create your team'),
       h('p', { class: 'small muted' }, 'You will be the admin: you load the data, plan the night and send each driver their trip. Drivers join with a code you get after this.'),
-      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name' }),
-      field('Company or team name', { name: 'team', autocomplete: 'organization', pattern: NOT_BLANK, title: 'Enter the team name' }),
+      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name', maxLength: 60 }),
+      field('Company or team name', { name: 'team', autocomplete: 'organization', pattern: NOT_BLANK, title: 'Enter the team name', maxLength: 60 }),
       field('Email', { type: 'email', name: 'email', autocomplete: 'email' }),
       field('Password (at least 6 characters)', { type: 'password', name: 'password', autocomplete: 'new-password', minLength: 6 }),
       msg, submit('Create team'), back);
@@ -87,9 +87,9 @@ function draw() {
       h('label', {}, 'Team code', h('input', { name: 'code', required: true, value: vals.code ?? '', autocapitalize: 'characters', inputMode: 'text', class: 'code-input', maxLength: TEAM_CODE.length, minLength: TEAM_CODE.length,
         oninput: (e: Event) => check(e.target as HTMLInputElement) })),
       team,
-      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name' }),
-      field('Phone number', { type: 'tel', name: 'phone', autocomplete: 'tel' }),
-      field('Vehicle number', { name: 'vehicle', placeholder: 'e.g. MH09 AB 1234', pattern: NOT_BLANK, title: 'Enter the vehicle number' }),
+      field('Your name', { name: 'name', autocomplete: 'name', pattern: NOT_BLANK, title: 'Enter your name', maxLength: 60 }),
+      field('Phone number', { type: 'tel', name: 'phone', autocomplete: 'tel', maxLength: 20 }),
+      field('Vehicle number', { name: 'vehicle', placeholder: 'e.g. MH09 AB 1234', pattern: NOT_BLANK, title: 'Enter the vehicle number', maxLength: 20 }),
       field('Email', { type: 'email', name: 'email', autocomplete: 'email' }),
       field('Password (at least 6 characters)', { type: 'password', name: 'password', autocomplete: 'new-password', minLength: 6 }),
       msg, submit('Join team'), back);

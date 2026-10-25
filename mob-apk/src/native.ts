@@ -1,4 +1,5 @@
 // Share sheet, file open and "open with" handling. Native APIs on Android/iOS, web APIs elsewhere.
+import { PLAN_FILE_MAX_MB, TOO_BIG } from './config';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -58,8 +59,9 @@ export async function shareText(title: string, text: string): Promise<'shared' |
 export function onFileOpened(handler: (name: string, bytes: Uint8Array | null, error?: string) => void) {
   const read = async (url: string | undefined) => {
     if (!url || url.startsWith('app.aria.planner:')) return;
-    const { data } = await Filesystem.readFile({ path: url });
     const name = decodeURIComponent(url.split('/').pop() || 'record.svcr');
+    if (((await Filesystem.stat({ path: url }).catch(() => null))?.size ?? 0) > PLAN_FILE_MAX_MB * 1024 * 1024) return handler(name, null, TOO_BIG);
+    const { data } = await Filesystem.readFile({ path: url });
     handler(name, typeof data === 'string' ? fromBase64(data) : new Uint8Array(await data.arrayBuffer()));
   };
   if (isNative) {
@@ -70,7 +72,8 @@ export function onFileOpened(handler: (name: string, bytes: Uint8Array | null, e
     (window as any).launchQueue.setConsumer(async (p: any) => {
       for (const fh of p.files || []) {
         const f = await fh.getFile();
-        handler(f.name, new Uint8Array(await f.arrayBuffer()));
+        if (f.size > PLAN_FILE_MAX_MB * 1024 * 1024) handler(f.name, null, TOO_BIG);
+        else handler(f.name, new Uint8Array(await f.arrayBuffer()));
       }
     });
   }

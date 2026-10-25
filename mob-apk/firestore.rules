@@ -8,6 +8,11 @@ service cloud.firestore {
     function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdminOf(orgId) { return signedIn() && me().role == 'admin' && me().orgId == orgId; }
     function activeMemberOf(orgId) { return signedIn() && me().orgId == orgId && me().active == true; }
+    // Text a person types: a string of lo..hi characters (the app's forms use the same limits).
+    function text(v, lo, hi) { return v is string && v.size() >= lo && v.size() <= hi; }
+    function validProfile(d) {
+      return text(d.name, 1, 60) && (!('phone' in d) || text(d.phone, 0, 20)) && (!('vehicle' in d) || text(d.vehicle, 0, 20));
+    }
     // A position from the phone: real coordinates, a reported accuracy, a time in ms.
     function validFix(p) {
       return p.lat is number && p.lon is number && p.lat >= -90 && p.lat <= 90 && p.lon >= -180 && p.lon <= 180
@@ -24,27 +29,29 @@ service cloud.firestore {
 
     match /joinCodes/{code} {
       allow get: if true; // looked up before a driver's account exists; codes cannot be listed
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && text(request.resource.data.team, 1, 60)
         && getAfter(/databases/$(database)/documents/orgs/$(request.resource.data.orgId)).data.ownerUid == request.auth.uid;
     }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || (resource.data.orgId == me().orgId && me().role == 'admin'));
-      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.active == true && (
+      allow create: if signedIn() && request.auth.uid == uid && request.resource.data.active == true
+        && validProfile(request.resource.data) && request.resource.data.email == request.auth.token.email && (
         (request.resource.data.role == 'admin'
           && getAfter(/databases/$(database)/documents/orgs/$(request.resource.data.orgId)).data.ownerUid == uid)
         || (request.resource.data.role == 'driver'
           && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.joinCode)).data.orgId == request.resource.data.orgId));
       allow update: if signedIn() && (
-        (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'vehicle', 'lastSeen']))
+        (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'vehicle', 'lastSeen'])
+          && validProfile(request.resource.data))
         || (isAdminOf(resource.data.orgId) && resource.data.role == 'driver'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])));
     }
 
     match /orgs/{orgId} {
       allow read: if signedIn() && me().orgId == orgId;
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && text(request.resource.data.name, 1, 60);
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid && text(request.resource.data.name, 1, 60)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'geo'])
         && (!('geo' in request.resource.data) || validPolicy(request.resource.data.geo));
 
@@ -205,7 +212,11 @@ service cloud.firestore {
 
       match /reports/{reportId} {
         allow read: if isAdminOf(orgId) || (activeMemberOf(orgId) && resource.data.driverUid == request.auth.uid);
-        allow create: if activeMemberOf(orgId) && request.resource.data.driverUid == request.auth.uid;
+        // a report carries the sender's own name (not another driver's), a short kind and a note of at most 1,000 characters
+        allow create: if activeMemberOf(orgId) && request.resource.data.driverUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['driverUid', 'driverName', 'tripId', 'kind', 'note', 'createdAt'])
+          && request.resource.data.driverName == me().name && text(request.resource.data.kind, 1, 40) && text(request.resource.data.note, 0, 1000)
+          && (request.resource.data.tripId == null || text(request.resource.data.tripId, 1, 64)) && request.resource.data.createdAt == request.time;
       }
     }
   }

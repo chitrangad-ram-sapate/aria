@@ -6,6 +6,9 @@
 // Only real coordinates are drawn. No road route is drawn: there is no routing service, and a straight line is not a road.
 import { MAP_TILES } from './config';
 
+/** Leaflet reads a string tooltip as HTML; names come from other people (drivers, CSV files), so pass text only. */
+const plain = (text: string) => Object.assign(document.createElement('span'), { textContent: text });
+
 export type MapStop = { id: string; n: number; label: string; lat: number; lon: number; radius_m: number; done: boolean; current: boolean };
 export type MapDriver = { lat: number; lon: number; acc_m: number; live: boolean; label: string };
 export interface DeliveryMap {
@@ -53,12 +56,12 @@ async function leafletMap(el: HTMLElement, onStop?: (id: string) => void): Promi
         const color = s.done ? COLORS.done : s.current ? COLORS.current : COLORS.stop;
         L.circle([s.lat, s.lon], { radius: s.radius_m, color, weight: 2, fillOpacity: s.current ? 0.12 : 0.05 }).addTo(layer);
         L.marker([s.lat, s.lon], { icon: L.divIcon({ className: 'map-pin', html: `<span style="background:${color}">${s.n}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }), title: s.label })
-          .on('click', () => onStop?.(s.id)).bindTooltip(s.label).addTo(layer);
+          .on('click', () => onStop?.(s.id)).bindTooltip(plain(s.label)).addTo(layer);
       }
       if (d) {
         const color = d.live ? COLORS.live : COLORS.old;
         if (d.acc_m > 0) L.circle([d.lat, d.lon], { radius: d.acc_m, color, weight: 1, dashArray: '4 4', fillOpacity: 0.08 }).addTo(layer);
-        L.circleMarker([d.lat, d.lon], { radius: 8, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }).bindTooltip(d.label).addTo(layer);
+        L.circleMarker([d.lat, d.lon], { radius: 8, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }).bindTooltip(plain(d.label)).addTo(layer);
       }
     },
     fitAll() {

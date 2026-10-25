@@ -60,6 +60,10 @@ export const LIST = { trips: 30, files: 30, reports: 30, driverReports: 20, deli
 /** Largest data CSV the app reads. */
 export const CSV_MAX_MB = 20;
 
+/** Largest plan file (.svcr) the app reads; real ones are well under 5 MB. */
+export const PLAN_FILE_MAX_MB = 25;
+export const TOO_BIG = `This file is larger than ${PLAN_FILE_MAX_MB} MB, so it is not a plan file.`;
+
 /** Today's date on this phone as YYYY-MM-DD (local time: toISOString() would give yesterday in India before 5:30 am). */
 export function today(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
