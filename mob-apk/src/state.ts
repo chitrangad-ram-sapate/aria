@@ -49,6 +49,7 @@ export const state = {
   files: [] as PlanFile[], // admin: plan files sent to drivers; driver: files sent to them
   bundledForecast: 'LightGBM quantile forecast, conformal-calibrated',
   engineInfo: '', // e.g. "Python 3.12.7 · SciPy HiGHS"
+  engineReady: false, // admin: the planner has started and the saved dataset is back
 };
 
 let fullRender = () => {};

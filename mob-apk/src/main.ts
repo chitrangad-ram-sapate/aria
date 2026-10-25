@@ -4,10 +4,10 @@ import { LIST } from './config';
 import { endTracking } from './views/deliver';
 import { backToTop, changePage, moveIndicator, popIcon, trackDock } from './dock';
 import { engine } from './engine';
-import { isNative, onFileOpened } from './native';
+import { isLabelLink, isNative, onFileOpened, onLabelOpened } from './native';
 import { track } from './geo';
 import { isStale, network, notify, onFullRender, onGoTo, restoreSaved, state, subscribe } from './state';
-import { errorBox, h, icon, mount } from './ui';
+import { errorBox, h, icon, mount, toast } from './ui';
 import * as account from './views/account';
 import * as ask from './views/ask';
 import * as driver from './views/driver';
@@ -15,6 +15,7 @@ import * as login from './views/login';
 import * as plan from './views/plan';
 import * as records from './views/records';
 import * as results from './views/results';
+import { scanSheet } from './views/scan';
 import * as team from './views/team';
 
 type View = { title: string; tab: string; icon: string; render: (el: HTMLElement) => void; update?: () => void };
@@ -204,6 +205,7 @@ function startDriver(_p: Profile) {
   mount(right, chip);
   mount(tabs, tabBtn('trips'), tabBtn('files'), tabBtn('report'), tabBtn('account'));
   show('trips', true);
+  openLabel(); // a label link that opened ARIA on a driver's phone: say it is for the admin
 }
 
 async function startAdmin() {
@@ -230,10 +232,30 @@ async function startAdmin() {
     [state.networks, state.scenarios] = await Promise.all([engine.listNetworks(), engine.listScenarios()]);
     await restoreSaved(); // the last dataset on this phone; otherwise Home asks for a CSV
     show(tab, true);
+    state.engineReady = true;
+    openLabel();
   } catch {
     mount(main, errorBox('The planner could not start on this phone. Close the app and open it again.'));
   }
 }
+
+// A label link (aria://label?...) from the phone camera: the admin gets "Scan stock labels" at that label's check.
+// It waits while the planner starts or nobody is signed in; drivers are told it is for their admin.
+let pendingLabel = '';
+function openLabel(link = pendingLabel) {
+  pendingLabel = link;
+  if (!link || !state.me) return;
+  if (state.me.role !== 'admin') { pendingLabel = ''; return toast('Stock labels are added by your admin, in their ARIA.'); }
+  if (!state.engineReady) return; // startAdmin calls this again when the planner is ready
+  pendingLabel = '';
+  show('plan');
+  if (!state.scenario) return toast('Load your data first, then scan the label again.');
+  scanSheet(link);
+}
+onLabelOpened((link) => openLabel(link));
+// the web build (and tests): ?label=<link> opens the same way
+const urlLabel = new URLSearchParams(location.search).get('label');
+if (urlLabel && isLabelLink(urlLabel)) pendingLabel = urlLabel;
 
 // Plan files opened from other apps: admins check them with the planner, drivers view them.
 onFileOpened((name, bytes, error) => {

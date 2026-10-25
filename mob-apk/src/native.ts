@@ -55,10 +55,16 @@ export async function shareText(title: string, text: string): Promise<'shared' |
   return 'copied';
 }
 
+let labelHandler: (link: string) => void = () => {};
+/** Calls handler with a label link (aria://label?...) that opened ARIA, e.g. from the phone camera. */
+export const onLabelOpened = (handler: (link: string) => void) => { labelHandler = handler; };
+export const isLabelLink = (url: string) => /^aria:\/\/label\b/i.test(url);
+
 /** Calls handler for .svcr files opened from other apps ("open with", share to ARIA). */
 export function onFileOpened(handler: (name: string, bytes: Uint8Array | null, error?: string) => void) {
   const read = async (url: string | undefined) => {
     if (!url || url.startsWith('app.aria.planner:')) return;
+    if (isLabelLink(url)) return labelHandler(url);
     const name = decodeURIComponent(url.split('/').pop() || 'record.svcr');
     if (((await Filesystem.stat({ path: url }).catch(() => null))?.size ?? 0) > PLAN_FILE_MAX_MB * 1024 * 1024) return handler(name, null, TOO_BIG);
     const { data } = await Filesystem.readFile({ path: url });

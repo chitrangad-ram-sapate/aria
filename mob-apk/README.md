@@ -62,6 +62,7 @@ npm run emulators    # local sign-in and database for testing (needs Java 11+); 
 npm run assistant-test # how Ask ARIA's word rules read 50+ questions, against the names in two samples
 npm run ai-test      # Ask ARIA's AI against the live Groq service (needs the key in .env.local)
 npm run team-test    # two companies: admin 1's plan file opens for driver 1 only, never for admin 2 or driver 2
+python scripts/make-labels.py # demo stock labels (QR links that open ARIA) for the Pune demo data, into ../demo-data/labels
 npm run rules-test   # tries what a careless or curious user might: other teams' data, own role, paused access
 npm run deploy:rules # publish firestore.rules and indexes to the live project
 ```
