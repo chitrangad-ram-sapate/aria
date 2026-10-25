@@ -107,9 +107,17 @@ def vehicle_options(sc: Scenario, godown_id: str, town_id: str) -> list[str]:
     return sorted((k for k, v in rates.items() if v > rates[r.vehicle_class]), key=lambda k: rates[k])
 
 
+def _ids(sel) -> list[str] | None:
+    """A product/town/depot choice: '*' or missing = all (None), one id, or a list of ids (from the chat)."""
+    if sel is None or sel == "*" or sel == ["*"]:
+        return None
+    return [sel] if isinstance(sel, str) else list(sel)
+
+
 def apply(sc: Scenario, params: dict, base_shipped: dict[str, int] | None = None) -> Scenario:
-    """params (all optional): demand_pct (−90…+300, product, town), capacity_pct (+ depot: '*' or id), freight_pct,
-    stock_loss_pct (+ depot, product), margin, closures [[depot, town]], restrictions [[depot, town, class]]."""
+    """params (all optional): demand_pct (−90…+300, product, town), capacity_pct (+ depot), freight_pct,
+    stock_loss_pct (+ depot, product), margin, closures [[depot, town]], restrictions [[depot, town, class]].
+    Each product/town/depot choice is '*' (all), one id or a list of ids."""
     shocks = []
     for g, t in params.get("closures") or []:
         shocks.append(Shock(type="ROUTE_CLOSURE", godown_id=g, town_id=t))
@@ -117,25 +125,26 @@ def apply(sc: Scenario, params: dict, base_shipped: dict[str, int] | None = None
         shocks.append(Shock(type="ROUTE_RESTRICTION", godown_id=g, town_id=t, max_vehicle=v))
     loss = float(params.get("stock_loss_pct") or 0)
     if loss:
-        dep = params.get("stock_depot") or "*"
-        shocks.append(Shock(type="INVENTORY_LOSS", godown_id=None if dep == "*" else dep, product_id=params.get("stock_product") or "*", pct=loss))
+        for dep in _ids(params.get("stock_depot")) or [None]:
+            for prod in _ids(params.get("stock_product")) or ["*"]:
+                shocks.append(Shock(type="INVENTORY_LOSS", godown_id=dep, product_id=prod, pct=loss))
     out = apply_shocks(sc, shocks) if shocks else sc.model_copy(deep=True)
     pct = float(params.get("demand_pct") or 0)
     if pct:
         if pct < -100:
             raise ValueError("demand change cannot be below −100%")
         k = 1 + pct / 100  # same scaling as the FESTIVAL_SPIKE shock, allowing decreases too
-        prod, town = params.get("demand_product") or "*", params.get("demand_town") or "*"
+        prods, towns = _ids(params.get("demand_product")), _ids(params.get("demand_town"))
         for d in out.demand:
-            if prod in ("*", d.product_id) and town in ("*", d.town_id):
+            if (prods is None or d.product_id in prods) and (towns is None or d.town_id in towns):
                 d.quantiles = [q * k for q in d.quantiles]
                 d.point *= k
                 d.sigma *= k
     cap = params.get("capacity_pct")
     if cap is not None and float(cap) != 100:
-        dep = params.get("capacity_depot") or "*"
+        deps = _ids(params.get("capacity_depot"))
         for g in out.godowns:
-            if dep not in ("*", g.godown_id):
+            if deps is not None and g.godown_id not in deps:
                 continue
             ref = g.dispatch_capacity_units if g.dispatch_capacity_units is not None else (base_shipped or {}).get(g.godown_id)
             if ref is not None:  # no capacity and nothing shipped in the baseline: nothing to scale
