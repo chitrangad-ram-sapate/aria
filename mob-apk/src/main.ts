@@ -20,7 +20,7 @@ import * as team from './views/team';
 type View = { title: string; tab: string; icon: string; render: (el: HTMLElement) => void; update?: () => void };
 // Admin: full control. Driver: only their trips, problem reports and account.
 const ADMIN: Record<string, View> = {
-  plan: { title: 'Tonight', tab: 'Home', icon: 'home', render: plan.render, update: plan.update },
+  plan: { title: '', tab: 'Home', icon: 'home', render: plan.render, update: plan.update },
   lab: { title: 'What if', tab: 'What if', icon: 'zap', render: lab.render, update: lab.update },
   results: { title: 'Results', tab: 'Results', icon: 'chart', render: results.render, update: results.update },
   team: { title: 'Team', tab: 'Team', icon: 'users', render: team.render, update: team.update },
@@ -78,9 +78,12 @@ const greeting = () => { const hr = new Date().getHours(); return hr < 5 ? 'Work
 
 function chrome() {
   if (!views[tab]) return;
-  title.textContent = views[tab].title;
   const me = state.me;
-  greet.textContent = me ? `${greeting()}, ${me.name.trim().split(/\s+/)[0]}` : '';
+  const first = me?.name.trim().split(/\s+/)[0] ?? '';
+  // Home has no page title: "Good evening" over the person's first name; other pages greet over their title
+  title.textContent = views[tab].title || first;
+  title.classList.toggle('long', title.textContent.length > 10); // long names (common in India) still fit
+  greet.textContent = views[tab].title ? (first ? `${greeting()}, ${first}` : '') : greeting();
   avatar.textContent = initials(me?.name);
   const [text, tone] = status();
   chipText.textContent = text;
@@ -210,7 +213,7 @@ async function startAdmin() {
   mount(right, chip, iconBtn('file', 'Plan files', 'records'));
   mount(tabs, tabBtn('plan'), tabBtn('lab'), go, tabBtn('results'), tabBtn('team'));
   tab = 'plan';
-  title.textContent = 'Tonight';
+  title.textContent = '';
   const bar = h('div', { class: 'bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100' }, h('div', { class: 'fill' }));
   const text = h('p', { class: 'muted', 'aria-live': 'polite' }, 'Getting the planner ready...');
   mount(main, h('section', { class: 'card loading' }, h('img', { class: 'boot-logo', src: `${import.meta.env.BASE_URL}logo.png`, alt: '' }), h('h2', {}, 'Getting ready'),

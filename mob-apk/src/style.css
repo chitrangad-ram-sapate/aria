@@ -315,7 +315,7 @@ dialog.sheet::backdrop { background: rgb(17 24 39 / 0.45); }
 .list-cards li { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .list-cards li:last-child { border-bottom: 0; }
 .grid2 > * { min-width: 0; }
-.grid2 + .grid2, :is(input, textarea, select) + .grid2 { margin-top: 10px; }
+.grid2 + .grid2, :is(input, textarea, select, .btn) + .grid2 { margin-top: 10px; }
 .sheet-body > .card { margin-top: 16px; }
 summary > strong + span { margin-left: 6px; } /* summaries are flex rows, which drop the leading space of " · details" */
 .card > ul.rows { margin: 12px 0; } /* a list inside a card must not touch the totals above or the buttons below */
@@ -487,3 +487,5 @@ table.compare .badge { white-space: nowrap; }
   .status-chip { padding: 0; width: 34px; justify-content: center; }
   .status-chip > span:last-child { display: none; }
 }
+header.top h1.long { font-size: 1.1rem; }
+@media (max-width: 360px) { header.top h1.long { font-size: 1rem; } }
