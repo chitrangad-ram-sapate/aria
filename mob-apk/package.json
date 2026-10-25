@@ -15,6 +15,7 @@
     "ios": "npm run build && npx cap sync ios",
     "emulators": "npx -y firebase-tools@13 emulators:start --only auth,firestore --project demo-aria",
     "rules-test": "node scripts/rules-test.mjs",
+    "team-test": "node scripts/team-test.mjs",
     "geofence-test": "node --no-warnings scripts/geofence-test.mjs",
     "assistant-test": "node --no-warnings scripts/assistant-test.mjs",
     "ai-test": "node --no-warnings scripts/ai-test.mjs",
