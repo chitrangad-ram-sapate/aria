@@ -71,8 +71,12 @@ export async function askPermission(): Promise<Perm> {
   return track.perm;
 }
 
-/** One fresh reading ("Check location again"). */
-export async function readOnce(): Promise<Fix | null> {
+let reading: Promise<Fix | null> | null = null;
+/** One fresh reading ("Check location again"); a call while one is under way waits for it. */
+export function readOnce(): Promise<Fix | null> {
+  return (reading ??= readNow().finally(() => { reading = null; }));
+}
+async function readNow(): Promise<Fix | null> {
   try {
     const f = toFix(await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 }));
     add(f);
@@ -91,7 +95,9 @@ export async function startTracking(onChange: () => void) {
   if (watchId) return;
   track.on = true;
   try {
-    watchId = await Geolocation.watchPosition({ enableHighAccuracy: true, timeout: 30_000, maximumAge: 0 }, (p, err) => {
+    // On Android `timeout` is how long readings may be held back and delivered in a batch; a long one makes every
+    // reading arrive older than the arrival rules allow, so keep it short there.
+    watchId = await Geolocation.watchPosition({ enableHighAccuracy: true, timeout: isNative ? 5_000 : 30_000, maximumAge: 0, minimumUpdateInterval: 2_000 }, (p, err) => {
       if (p) add(toFix(p));
       else if (err) { track.error = errorKind(err); if (track.error === 'denied') track.perm = 'denied'; listener(); }
     });

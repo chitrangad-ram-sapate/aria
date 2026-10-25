@@ -84,6 +84,8 @@ function policyCard() {
 function stopSheet(t: Trip, s0: DeliveryStop) {
   const me = state.me!;
   const s = (state.stops[t.id] ?? []).find((x) => x.id === s0.id) ?? s0;
+  // the stop as it is now: each change bumps its number, so an action must not reuse the copy from when the sheet opened
+  const cur = () => (state.stops[t.id] ?? []).find((x) => x.id === s.id) ?? s;
   const live = liveOf(t);
   const liveNow = !!live && Date.now() - live.fix_at < OLD_MS;
   const point = typeof s.lat === 'number' && typeof s.lon === 'number' ? { lat: s.lat, lon: s.lon } : null;
@@ -94,7 +96,7 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
     if (!ok && reason.value.trim().length < 3) return toast('Write why the delivery is not accepted.');
     b.disabled = true;
     try {
-      await reviewStop(me.orgId, t, s, ok, reason.value.trim().slice(0, 300), me, state.stops[t.id] ?? []);
+      await reviewStop(me.orgId, state.trips.find((x) => x.id === t.id) ?? t, cur(), ok, reason.value.trim().slice(0, 300), me, state.stops[t.id] ?? []);
       toast(ok ? 'Delivery confirmed' : 'Delivery not accepted; the driver can try again');
       close();
     } catch (e: any) {
@@ -107,7 +109,8 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
   const savePoint = async () => {
     const a = Number(lat.value), b = Number(lon.value);
     if (!lat.value.trim() || !lon.value.trim() || !Number.isFinite(a) || !Number.isFinite(b) || a < -90 || a > 90 || b < -180 || b > 180 || (a === 0 && b === 0)) return toast('Enter a real latitude and longitude.');
-    try { await setStopPoint(me.orgId, s, a, b, me); toast('Delivery point saved'); close(); } catch { toast('Could not save. The driver may have set off already.'); }
+    try { await setStopPoint(me.orgId, cur(), a, b, me); toast('Delivery point saved'); close(); }
+    catch (e: any) { toast(String(e?.code).includes('permission-denied') ? 'Could not save. The driver has already arrived, or this delivery changed; open it again.' : 'Could not save. Check the internet connection.'); }
   };
   openSheet(`${s.town} · ${t.driverName}`,
     h('div', { class: 'row between' }, h('span', { class: 'small muted' }, `Stop ${s.i + 1} of ${t.stops.length} · from ${t.depot} · ${t.day}`), stateBadge(s)),
@@ -136,15 +139,15 @@ function stopSheet(t: Trip, s0: DeliveryStop) {
         const b = e.currentTarget as HTMLButtonElement;
         b.disabled = true;
         try {
-          const code = await makeCode(me.orgId, s, me);
+          const code = await makeCode(me.orgId, cur(), me);
           const text = `ARIA delivery code for ${s.town}: ${code}. Give it to the driver (${t.driverName}) only when the stock is handed over. Valid for 24 hours.`;
           mount(codeBox, h('div', { class: 'alert ok' }, h('p', { class: 'small' }, 'Send this to the shop now. It is shown only once.'), h('strong', { class: 'join-code' }, code),
             h('button', { class: 'btn block', onclick: async () => { if ((await shareText('Delivery code', text)) === 'copied') toast('Copied'); } }, 'Send to the shop')));
           b.remove();
         } catch { b.disabled = false; toast('Could not make a code. Check the internet connection.'); }
       } }, s.codeGen ? 'Make a new code' : 'Make delivery code')],
-    s.state === 'assigned' && t.status !== 'cancelled' && [h('h3', {}, 'Delivery point'),
-      h('p', { class: 'small muted' }, 'Where the driver must be to hand over. Taken from your data; change it before the driver sets off.'),
+    ['assigned', 'in_transit', 'rejected'].includes(s.state) && t.status !== 'cancelled' && [h('h3', {}, 'Delivery point'),
+      h('p', { class: 'small muted' }, 'Where the driver must be to hand over. Taken from your data; you can change it until the driver arrives.'),
       h('div', { class: 'grid2' }, lat, lon),
       h('div', { class: 'grid2' },
         h('button', { class: 'btn', onclick: async () => { const f = await readOnce(); if (!f) return toast('Could not read this phone\'s location.'); lat.value = f.lat.toFixed(6); lon.value = f.lon.toFixed(6); toast(`This phone: accurate to ${Math.round(f.acc_m)} m`); } }, 'Use this phone\'s location'),

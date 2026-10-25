@@ -96,6 +96,22 @@ def test_errors_carry_line_numbers():
     assert any(s == "routes" and "D9" in m and line == 26 for (s, line), m in msgs.items())
 
 
+@pytest.mark.parametrize("value", ["inf", "-inf", "1e400", "nan"])
+def test_impossible_numbers_are_row_errors_not_crashes(value):
+    r = load(MINI.replace("D1,MILK,50,4", f"D1,MILK,{value},4"))
+    assert not r["ok"]
+    assert any(e["section"] == "stock" and "whole number" in e["message"] for e in r["errors"])
+    assert not load(MINI.replace("margin,0.05", f"margin,{value}"))["ok"]
+
+
+@pytest.mark.parametrize("row, why", [("T1,Alpha,1000,,18.5,", "both lat and lon"), ("T1,Alpha,1000,,95,73.8", "from -90 to 90")])
+def test_town_positions_must_be_whole_and_on_the_globe(row, why):
+    text = MINI.replace("town_id,name,population\nT1,Alpha,1000", f"town_id,name,population,priority,lat,lon\n{row}")
+    r = load(text)
+    assert not r["ok"] and any(e["section"] == "towns" and why in e["message"] for e in r["errors"])
+    assert load(text.replace(row, "T1,Alpha,1000,,18.5,73.8"))["ok"]
+
+
 def test_missing_sections_and_columns_are_reported():
     r = load("# products\nproduct_id,kg_per_unit\nA,1\n")
     assert not r["ok"]

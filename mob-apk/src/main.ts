@@ -96,8 +96,10 @@ watchProfile((p, user) => {
   clearTimeout(signupWait);
   if (!user) {
     started = '';
+    stops.splice(0).forEach((s) => s()); // the old account's listeners would keep retrying and keep its data in memory
     dropTripSubs();
     endTracking();
+    Object.assign(state, { me: null, team: null, trips: [], reports: [], files: [], drivers: [] });
     header.hidden = true;
     tabs.hidden = true;
     login.render(main);

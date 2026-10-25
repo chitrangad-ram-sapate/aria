@@ -417,7 +417,7 @@ function shareSheet(p: Json, resp: Json) {
       : h('p', { class: 'note' }, 'No active drivers yet. Share your team code from the Team screen.'),
     h('h3', {}, 'Or share as a file'),
     h('button', { class: 'btn block', onclick: async () => {
-      try { await shareFile(svcrName(p, resp), await lockPlan(await engine.exportSvcr(p.plan_id), me!.orgId), SVCR_MIME); } catch { toast('Sharing did not work. Please try again.'); }
+      try { await shareFile(svcrName(p, resp), await lockPlan(await engine.exportSvcr(p.plan_id), me!.orgId), SVCR_MIME); } catch (e: any) { toast(String(e?.message).includes('no-key') ? errorText(e) : 'Sharing did not work. Please try again.'); }
     } }, icon('share'), 'Share to WhatsApp, email...'),
     h('p', { class: 'note' }, 'Plan files are locked to your team. Only people signed in to this team can open them, even if the file is forwarded.'));
 }

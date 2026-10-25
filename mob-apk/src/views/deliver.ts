@@ -141,7 +141,13 @@ export function drawStop(root: HTMLElement, back: () => void) {
   // readings and the clock redraw the page, except while the proof form is open (it would clear what is being typed)
   redraw = () => { if (page && root.isConnected && s.state !== 'arrived') drawStop(root, back); };
   clearInterval(ticker);
-  if (s.state === 'in_transit') ticker = window.setInterval(redraw, 5000); // keeps "x s ago" and old-reading warnings true
+  // keeps "x s ago" and old-reading warnings true, and asks for a fresh reading when the phone has not sent one lately,
+  // so the arrival check does not wait on readings that come in slowly
+  if (s.state === 'in_transit') ticker = window.setInterval(() => {
+    const last = lastFix();
+    if (track.perm === 'granted' && (!last || Date.now() - last.fix_at > Math.min(8_000, s.policy.max_age_s * 500))) readOnce();
+    redraw();
+  }, 5000);
   const all = state.stops[t.id] ?? [];
   const item = t.stops[s.i];
   const c = check(t, s);
@@ -289,6 +295,10 @@ function proofForm(_t: Trip, s: DeliveryStop) {
   const name = h('input', { type: 'text', placeholder: 'Name of the person receiving', 'aria-label': 'Recipient name', autocomplete: 'off', value: typed.name, oninput: () => { typed.name = name.value; } });
   const code = h('input', { type: 'text', inputMode: 'numeric', maxLength: 6, placeholder: '6-digit code from the shop', 'aria-label': 'Recipient code', autocomplete: 'off', class: 'code-input',
     value: typed.code, oninput: () => { typed.code = code.value; } });
+  // a live update redraws this form: keep the cursor (and the phone keyboard) in the box being typed in
+  const was = document.activeElement?.getAttribute('aria-label');
+  const keep = was === 'Recipient name' ? name : was === 'Recipient code' ? code : null;
+  if (keep) queueMicrotask(() => { keep.focus(); keep.setSelectionRange(keep.value.length, keep.value.length); });
   const msg = h('p', { class: typed.bad ? 'small bad-text' : 'small', 'aria-live': 'polite' }, typed.msg);
   const say = (text: string, bad = true) => { typed.msg = text; typed.bad = bad; msg.textContent = text; msg.className = bad ? 'small bad-text' : 'small'; };
   const send = h('button', { class: 'btn primary block big', disabled: !s.codeGen || s.pending }, 'Submit delivery proof');

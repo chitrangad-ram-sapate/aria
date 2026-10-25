@@ -76,12 +76,15 @@ const KINDS: [string, string][] = [['Road closed or blocked', 'Road closed or bl
   ['Shop could not take the stock', 'Shop could not take the stock'], ['Running late', 'Running late'], ['Something else', 'Something else']];
 let reportFor = '';
 let kind = KINDS[0][0];
+let details = ''; // kept across redraws: live updates redraw this page while the driver is typing
 let sending = false;
 
 function drawReport() {
   const me = state.me!;
   const trips = state.trips.filter((t) => !finished(t));
-  const note = h('textarea', { rows: 4, placeholder: 'What happened? Where?', 'aria-label': 'Details' });
+  const focused = document.activeElement?.getAttribute('aria-label') === 'Details';
+  const note = h('textarea', { rows: 4, placeholder: 'What happened? Where?', 'aria-label': 'Details', value: details, oninput: () => { details = note.value; } });
+  if (focused) queueMicrotask(() => { note.focus(); note.setSelectionRange(details.length, details.length); });
   const mine = state.reports.slice(0, 20);
   mount(reportRoot!,
     h('section', { class: 'card' },
@@ -93,9 +96,12 @@ function drawReport() {
         sending = true;
         drawReport();
         try {
-          await sendReport(me.orgId, { driverUid: me.uid, driverName: me.name, tripId: reportFor || null, kind, note: note.value.trim() });
-          toast('Sent to your admin');
+          // offline, the report is kept on the phone at once but the server's answer never comes: do not wait for it
+          const sent = sendReport(me.orgId, { driverUid: me.uid, driverName: me.name, tripId: reportFor || null, kind, note: details.trim() }).then(() => true);
+          const ok = await Promise.race([sent, new Promise<false>((r) => setTimeout(() => r(false), 4000))]);
+          toast(ok ? 'Sent to your admin' : 'Saved on this phone. It reaches your admin when you are back online.');
           reportFor = '';
+          details = '';
         } catch {
           toast('Could not send. Check the internet connection and try again.');
         } finally {
